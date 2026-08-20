@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" />
+<style>
+  html, body { margin: 0; padding: 0; background: #141414; }
+  * { box-sizing: border-box; }
+  a { color: #4A9EFF; text-decoration: none; }
+  a:hover { color: #6BB0FF; }
+</style>
+</helmet>
+<div style="background: #141414; color: #EDEDED; font-family: Inter, system-ui, sans-serif; font-size: 13px; line-height: 1.45; padding: 40px 40px 96px 40px; display: flex; flex-direction: column; gap: 56px; min-width: 1520px">
+
+  <header style="display: flex; flex-direction: column; gap: 12px; max-width: 720px">
+    <div style="font-family: JetBrains Mono, monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #6E6E6E">FluxKrea Trainer 26 · screen compositions</div>
+    <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.015em">Four screens, one variant, edge states</h1>
+    <p style="margin: 0; color: #A0A0A0; text-wrap: pretty">Artboards at 1440×900 unless labelled otherwise, composed from the components in <a href="FluxKrea Design Catalog.dc.html">FluxKrea Design Catalog</a>. Every value is a catalog token; nothing new was introduced.</p>
+    <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding: 12px; background: #202020; border: 1px solid #333333; border-radius: 6px; max-width: 620px">
+      <div style="font-size: 12px; font-weight: 600">Two positions taken, both flagged in the brief</div>
+      <div style="font-size: 12px; color: #A0A0A0; text-wrap: pretty"><span style="color: #EDEDED">Space is no longer overloaded.</span> Tap-versus-hold on the same key in a loop where Space is pressed 210 times is a misfire waiting to happen. Space marks reviewed only; pan is middle-drag or <span style="font-family: JetBrains Mono, monospace">H</span>-drag, stated in the bottom bar.</div>
+      <div style="font-size: 12px; color: #A0A0A0; text-wrap: pretty"><span style="color: #EDEDED">Zero detections got louder.</span> A sort order is not enough. They are now a pinned amber group at the top of the filmstrip with a count header, amber row fill, and a matching header counter that reads as a task rather than a statistic.</div>
+    </div>
+  </header>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-size: 16px; font-weight: 600">1 — Mask review</div>
+      <div style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">1440 × 900 · filmstrip 220 · canvas 912 · inspector 260</div>
+    </div>
+    <div style="width: 1440px; height: 900px; background: #181818; border: 1px solid #333333; display: flex; flex-direction: column; overflow: hidden">
+
+      <div style="height: 44px; flex: 0 0 44px; padding: 0 12px; display: flex; align-items: center; gap: 12px; background: #202020; border-bottom: 1px solid #333333">
+        <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #161616; border: 1px solid #333333; border-radius: 4px; font-family: JetBrains Mono, monospace; font-size: 12px">olympus-1 <span style="color: #6E6E6E">▾</span></span>
+        <span style="font-weight: 600">FluxKrea 26</span>
+        <span style="margin-left: auto; height: 28px; width: 280px; padding: 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #161616; border: 1px solid #333333; border-radius: 4px; color: #6E6E6E; font-size: 12px">⌕ Search <span style="margin-left: auto; font-family: JetBrains Mono, monospace; font-size: 11px">⌘K</span></span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #3FB950">● connected</span>
+        <span style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; color: #A0A0A0">⚙</span>
+      </div>
+
+      <div style="flex: 1; display: flex; min-height: 0">
+        <div style="width: 48px; flex: 0 0 48px; background: #202020; border-right: 1px solid #333333; display: flex; flex-direction: column; align-items: center; padding: 6px 0; gap: 4px">
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">▣</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #1E3A5C; border-radius: 4px; color: #4A9EFF">◧</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">⏵</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">⛓</span>
+        </div>
+
+        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+          <div style="height: 40px; flex: 0 0 40px; padding: 0 12px; display: flex; align-items: center; gap: 12px; background: #202020; border-bottom: 1px solid #333333">
+            <span style="font-size: 13px; white-space: nowrap; flex: 0 0 auto"><span style="font-family: JetBrains Mono, monospace">poses_v3</span> <span style="color: #6E6E6E">·</span> review</span>
+            <span style="font-size: 12px; color: #A0A0A0; font-variant-numeric: tabular-nums; white-space: nowrap; flex: 0 0 auto">184/210 reviewed</span>
+            <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; white-space: nowrap; background: #322710; border: 1px solid #6B5214; border-radius: 3px; font-size: 11px; color: #D29922; font-weight: 500">⚠ 6 with no detections — check these first</span>
+            <span style="margin-left: auto; display: flex; gap: 6px; flex: 0 0 auto; white-space: nowrap">
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px">unreviewed <span style="font-variant-numeric: tabular-nums; color: #A0A0A0">26</span></span>
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; background: #282828; border: 1px solid #333333; border-radius: 3px; font-size: 11px; color: #A0A0A0">no detections <span style="font-variant-numeric: tabular-nums; color: #6E6E6E">6</span></span>
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #282828; border: 1px solid #333333; border-radius: 3px; font-size: 11px; color: #A0A0A0">all</span>
+            </span>
+          </div>
+
+          <div style="flex: 1; display: flex; min-height: 0">
+            <div style="width: 220px; flex: 0 0 220px; background: #202020; border-right: 1px solid #333333; display: flex; flex-direction: column; min-height: 0">
+              <div style="height: 24px; flex: 0 0 24px; padding: 0 10px; display: flex; align-items: center; gap: 6px; background: #322710; border-bottom: 1px solid #6B5214; font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #D29922"><span>⚠ no detections</span><span style="margin-left: auto; font-variant-numeric: tabular-nums">6</span></div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626; background: #241E10; border-left: 2px solid #D29922">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px">kick_003</span><span style="font-size: 10px; color: #D29922">⚠ 0 boxes</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626; background: #241E10; border-left: 2px solid #D29922">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px">kick_004</span><span style="font-size: 10px; color: #D29922">⚠ 0 boxes</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626; background: #241E10; border-left: 2px solid #D29922">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px">spin_021</span><span style="font-size: 10px; color: #D29922">⚠ 0 boxes</span></span>
+              </div>
+              <div style="height: 22px; flex: 0 0 22px; padding: 0 10px; display: flex; align-items: center; background: #232323; border-bottom: 1px solid #333333; font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #6E6E6E"><span>unreviewed</span><span style="margin-left: auto; font-variant-numeric: tabular-nums">26</span></div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626; background: #1E3A5C; border-left: 2px solid #4A9EFF">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block; position: relative"><span style="position: absolute; left: 6px; top: 5px; width: 9px; height: 11px; border: 1px solid #00E5FF"></span></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px">punch_014</span><span style="font-size: 10px; color: #A0A0A0">3 boxes · unreviewed</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">punch_015</span><span style="font-size: 10px; color: #6E6E6E">1 box · unreviewed</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">punch_016</span><span style="font-size: 10px; color: #6E6E6E">2 boxes · unreviewed</span></span>
+              </div>
+              <div style="height: 22px; flex: 0 0 22px; padding: 0 10px; display: flex; align-items: center; background: #232323; border-bottom: 1px solid #333333; border-top: 1px solid #333333; font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #6E6E6E"><span>reviewed</span><span style="margin-left: auto; font-variant-numeric: tabular-nums">184</span></div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">throw_002</span><span style="font-size: 10px; color: #3FB950">✓ reviewed · 2 boxes</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">throw_003</span><span style="font-size: 10px; color: #3FB950">✓ reviewed · 1 box</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">throw_004</span><span style="font-size: 10px; color: #3FB950">✓ reviewed · 3 boxes</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">guard_011</span><span style="font-size: 10px; color: #3FB950">✓ reviewed · 2 boxes</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">guard_012</span><span style="font-size: 10px; color: #3FB950">✓ reviewed · 1 box</span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626">
+                <span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">sweep_007</span><span style="font-size: 10px; color: #3FB950">✓ reviewed · 2 boxes</span></span>
+              </div>
+              <div style="flex: 1; display: flex; align-items: flex-start; padding: 8px 10px; font-family: JetBrains Mono, monospace; font-size: 10px; color: #6E6E6E">virtualized · 210 items</div>
+            </div>
+
+            <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+              <div style="flex: 1; position: relative; background: #101010; display: flex; align-items: center; justify-content: center; overflow: hidden">
+                <div style="position: relative; width: 570px; height: 100%; background: repeating-linear-gradient(45deg, #1a1a1a 0 12px, #212121 12px 24px)">
+                  <span style="position: absolute; left: 12px; bottom: 10px; font-family: JetBrains Mono, monospace; font-size: 10px; color: #6E6E6E">stand-in · figure mid-motion, off-centre, face turned ~40°</span>
+                  <span style="position: absolute; left: 12px; top: 10px; font-family: JetBrains Mono, monospace; font-size: 10px; color: #6E6E6E">punch_014.jpg · 1536 × 2048</span>
+
+                  <div style="position: absolute; left: 318px; top: 120px; width: 92px; height: 106px; background: rgba(255, 0, 170, 0.35); filter: blur(3px)"></div>
+                  <div style="position: absolute; left: 122px; top: 300px; width: 108px; height: 140px; background: rgba(255, 0, 170, 0.35); filter: blur(3px)"></div>
+
+                  <div style="position: absolute; left: 330px; top: 132px; width: 68px; height: 82px; border: 1px solid #00E5FF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.6)">
+                    <span style="position: absolute; left: 0; top: -16px; height: 14px; padding: 0 4px; display: inline-flex; align-items: center; background: rgba(0, 0, 0, 0.7); font-family: JetBrains Mono, monospace; font-size: 9px; color: #00E5FF">yunet 0.91</span>
+                  </div>
+
+                  <div style="position: absolute; left: 236px; top: 460px; width: 62px; height: 74px; border: 1px solid #FFD000; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.6)">
+                    <span style="position: absolute; left: 0; top: -16px; height: 14px; padding: 0 4px; display: inline-flex; align-items: center; background: rgba(0, 0, 0, 0.7); font-family: JetBrains Mono, monospace; font-size: 9px; color: #FFD000">manual</span>
+                  </div>
+
+                  <div style="position: absolute; left: 134px; top: 312px; width: 84px; height: 116px; border: 2px solid #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.6)">
+                    <span style="position: absolute; left: -4px; top: -4px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                    <span style="position: absolute; right: -4px; top: -4px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                    <span style="position: absolute; left: -4px; bottom: -4px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                    <span style="position: absolute; right: -4px; bottom: -4px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                    <span style="position: absolute; left: 50%; top: -4px; margin-left: -3.5px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                    <span style="position: absolute; left: 50%; bottom: -4px; margin-left: -3.5px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                    <span style="position: absolute; left: -4px; top: 50%; margin-top: -3.5px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                    <span style="position: absolute; right: -4px; top: 50%; margin-top: -3.5px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                    <span style="position: absolute; left: 0; top: -18px; height: 15px; padding: 0 4px; display: inline-flex; align-items: center; background: rgba(0, 0, 0, 0.75); font-family: JetBrains Mono, monospace; font-size: 9px; color: #FFFFFF; font-variant-numeric: tabular-nums">412, 88 · 96 × 128</span>
+                  </div>
+                </div>
+
+                <div style="position: absolute; right: 12px; bottom: 12px; width: 118px; background: #202020; border: 1px solid #454545; display: flex; flex-direction: column">
+                  <div style="height: 18px; padding: 0 5px; display: flex; align-items: center; background: #282828; border-bottom: 1px solid #333333; font-family: JetBrains Mono, monospace; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: #A0A0A0">isolate · M</div>
+                  <div style="position: relative; height: 150px; background: #FFFFFF">
+                    <div style="position: absolute; left: 66px; top: 24px; width: 20px; height: 22px; background: #000000; filter: blur(1.5px)"></div>
+                    <div style="position: absolute; left: 24px; top: 62px; width: 24px; height: 30px; background: #000000; filter: blur(1.5px)"></div>
+                    <div style="position: absolute; left: 48px; top: 96px; width: 14px; height: 16px; background: #000000; filter: blur(1.5px)"></div>
+                  </div>
+                  <div style="padding: 4px 5px; font-family: JetBrains Mono, monospace; font-size: 9px; color: #6E6E6E">faces black · rest white</div>
+                </div>
+
+                <span style="position: absolute; right: 12px; top: 12px; height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: rgba(0, 0, 0, 0.6); border-radius: 3px; font-family: JetBrains Mono, monospace; font-size: 11px; font-variant-numeric: tabular-nums">68%</span>
+              </div>
+
+              <div style="height: 36px; flex: 0 0 36px; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #202020; border-top: 1px solid #333333; font-size: 12px">
+                <span style="display: inline-flex; flex: 0 0 auto; border: 1px solid #333333; border-radius: 4px; overflow: hidden"><span style="height: 24px; padding: 0 10px; display: inline-flex; align-items: center; background: #1E3A5C; font-size: 11px; font-weight: 500">fit</span><span style="height: 24px; padding: 0 10px; display: inline-flex; align-items: center; border-left: 1px solid #333333; font-size: 11px; color: #A0A0A0">1:1</span></span>
+                <span style="font-variant-numeric: tabular-nums; color: #A0A0A0; flex: 0 0 auto">68%</span>
+                <span style="width: 1px; height: 16px; background: #333333; flex: 0 0 auto"></span>
+                <span style="height: 24px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px">overlay <span style="font-family: JetBrains Mono, monospace; color: #A0A0A0">M</span></span>
+                <span style="height: 24px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px">detected <span style="font-family: JetBrains Mono, monospace; color: #A0A0A0">D</span></span>
+                <span style="width: 1px; height: 16px; background: #333333; flex: 0 0 auto"></span>
+                <span style="font-size: 11px; color: #6E6E6E; flex: 0 0 auto"><span style="font-family: JetBrains Mono, monospace; color: #A0A0A0">Space</span> mark reviewed · <span style="font-family: JetBrains Mono, monospace; color: #A0A0A0">H</span>-drag or middle-drag to pan</span>
+                <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 10px; flex: 0 0 auto; font-variant-numeric: tabular-nums; color: #A0A0A0"><span>◀</span><span>184/210</span><span>▶</span></span>
+              </div>
+            </div>
+
+            <div style="width: 260px; flex: 0 0 260px; background: #202020; border-left: 1px solid #333333; display: flex; flex-direction: column; min-height: 0">
+              <div style="padding: 12px; border-bottom: 1px solid #333333; display: flex; flex-direction: column; gap: 8px">
+                <div style="display: flex; align-items: center"><span style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">boxes</span><span style="margin-left: auto; font-size: 11px; color: #A0A0A0; font-variant-numeric: tabular-nums">1 detected · 2 manual</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px">
+                  <div style="height: 26px; padding: 0 8px; display: flex; align-items: center; gap: 6px; background: #161616; border: 1px solid #333333; border-radius: 3px; font-size: 11px"><span style="width: 8px; height: 8px; border: 1px solid #00E5FF"></span><span>detected</span><span style="margin-left: auto; font-family: JetBrains Mono, monospace; color: #A0A0A0; font-variant-numeric: tabular-nums">68 × 82</span></div>
+                  <div style="height: 26px; padding: 0 8px; display: flex; align-items: center; gap: 6px; background: #161616; border: 1px solid #333333; border-radius: 3px; font-size: 11px"><span style="width: 8px; height: 8px; border: 1px solid #FFD000"></span><span>manual</span><span style="margin-left: auto; font-family: JetBrains Mono, monospace; color: #A0A0A0; font-variant-numeric: tabular-nums">62 × 74</span></div>
+                  <div style="height: 26px; padding: 0 8px; display: flex; align-items: center; gap: 6px; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px; outline: 2px solid #4A9EFF; outline-offset: 1px"><span style="width: 8px; height: 8px; border: 1px solid #FFFFFF"></span><span>manual</span><span style="margin-left: auto; font-family: JetBrains Mono, monospace; font-variant-numeric: tabular-nums">96 × 128</span></div>
+                </div>
+                <div style="display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 5px 8px; font-size: 11px; align-items: center">
+                  <span style="color: #A0A0A0">x</span><span style="height: 24px; padding: 0 6px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">412</span>
+                  <span style="color: #A0A0A0">w</span><span style="height: 24px; padding: 0 6px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">96</span>
+                  <span style="color: #A0A0A0">y</span><span style="height: 24px; padding: 0 6px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">88</span>
+                  <span style="color: #A0A0A0">h</span><span style="height: 24px; padding: 0 6px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">128</span>
+                </div>
+              </div>
+              <div style="padding: 12px; border-bottom: 1px solid #333333; display: flex; flex-direction: column; gap: 10px">
+                <div style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">mask</div>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="width: 50px; color: #A0A0A0">expand</span><span style="flex: 1; position: relative; height: 4px; background: #161616; border-radius: 2px; display: block"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 53%; background: #4A9EFF; border-radius: 2px"></span><span style="position: absolute; left: 53%; top: -4px; width: 11px; height: 11px; margin-left: -5.5px; background: #EDEDED; border-radius: 50%"></span></span><span style="width: 46px; height: 22px; padding: 0 5px; display: flex; align-items: center; justify-content: flex-end; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">1.60×</span></div>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="width: 50px; color: #A0A0A0">feather</span><span style="flex: 1; position: relative; height: 4px; background: #161616; border-radius: 2px; display: block"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 24%; background: #4A9EFF; border-radius: 2px"></span><span style="position: absolute; left: 24%; top: -4px; width: 11px; height: 11px; margin-left: -5.5px; background: #EDEDED; border-radius: 50%"></span></span><span style="width: 46px; height: 22px; padding: 0 5px; display: flex; align-items: center; justify-content: flex-end; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">12px</span></div>
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="width: 50px; color: #A0A0A0">opacity</span><span style="flex: 1; position: relative; height: 4px; background: #161616; border-radius: 2px; display: block"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 35%; background: #4A9EFF; border-radius: 2px"></span><span style="position: absolute; left: 35%; top: -4px; width: 11px; height: 11px; margin-left: -5.5px; background: #EDEDED; border-radius: 50%"></span></span><span style="width: 46px; height: 22px; padding: 0 5px; display: flex; align-items: center; justify-content: flex-end; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">35%</span></div>
+                <div style="display: inline-flex; border: 1px solid #333333; border-radius: 4px; overflow: hidden"><span style="flex: 1; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: #A0A0A0">off</span><span style="flex: 1; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-left: 1px solid #333333; background: #1E3A5C; font-size: 11px; font-weight: 500">overlay</span><span style="flex: 1; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-left: 1px solid #333333; font-size: 11px; color: #A0A0A0">isolate</span></div>
+              </div>
+              <div style="padding: 12px; border-bottom: 1px solid #333333; display: flex; flex-direction: column; gap: 8px">
+                <div style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">detector</div>
+                <span style="height: 28px; padding: 0 8px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 4px; font-size: 12px">yunet <span style="margin-left: auto; color: #6E6E6E">▾</span></span>
+                <div style="display: flex; gap: 8px"><span style="flex: 1; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Re-detect <span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E; margin-left: 6px">R</span></span></div>
+              </div>
+              <div style="padding: 12px; display: flex; flex-direction: column; gap: 8px">
+                <div style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">item</div>
+                <div style="display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; font-size: 11px">
+                  <span style="text-align: right; color: #A0A0A0">stem</span><span style="font-family: JetBrains Mono, monospace">punch_014</span>
+                  <span style="text-align: right; color: #A0A0A0">size</span><span style="font-variant-numeric: tabular-nums">1536 × 2048</span>
+                  <span style="text-align: right; color: #A0A0A0">mask</span><span style="color: #D29922">⚠ not written</span>
+                  <span style="text-align: right; color: #A0A0A0">caption</span><span style="color: #3FB950">✓ present</span>
+                </div>
+                <span style="height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #4A9EFF; color: #0D1117; border-radius: 4px; font-size: 12px; font-weight: 500; margin-top: 2px">Mark reviewed <span style="font-family: JetBrains Mono, monospace; font-size: 11px; margin-left: 6px; opacity: 0.7">Space</span></span>
+              </div>
+              <div style="flex: 1; padding: 12px; display: flex; align-items: flex-end"><span style="font-size: 11px; color: #6E6E6E; text-wrap: pretty">Boxes are source geometry. The mask re-derives live from expand and feather; export renders it server-side from the same numbers.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width: 900px; font-size: 12px; color: #A0A0A0; text-wrap: pretty">Proportion answer: 220 + 260 leaves the canvas 912px, which fits a 3:4 frame at 570 × 780 with room either side. The inspector earns its 260 — the box list, three slider pairs and the geometry readout all sit above the fold without scrolling. The filmstrip does not need 220 for its content, but it does need it for the two-line row (stem plus status), which is what makes a miss legible at a glance.</div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-size: 16px; font-weight: 600">2 — Training monitor</div>
+      <div style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">1440 × 900 · stat tiles → chart 40% → samples + logs 35%</div>
+    </div>
+    <div style="width: 1440px; height: 900px; background: #181818; border: 1px solid #333333; display: flex; flex-direction: column; overflow: hidden">
+      <div style="height: 44px; flex: 0 0 44px; padding: 0 12px; display: flex; align-items: center; gap: 12px; background: #202020; border-bottom: 1px solid #333333">
+        <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #161616; border: 1px solid #333333; border-radius: 4px; font-family: JetBrains Mono, monospace; font-size: 12px">olympus-2 <span style="color: #6E6E6E">▾</span></span>
+        <span style="font-weight: 600">FluxKrea 26</span>
+        <span style="margin-left: auto; height: 28px; width: 280px; padding: 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #161616; border: 1px solid #333333; border-radius: 4px; color: #6E6E6E; font-size: 12px">⌕ Search <span style="margin-left: auto; font-family: JetBrains Mono, monospace; font-size: 11px">⌘K</span></span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #3FB950">● connected</span>
+        <span style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; color: #A0A0A0">⚙</span>
+      </div>
+      <div style="flex: 1; display: flex; min-height: 0">
+        <div style="width: 48px; flex: 0 0 48px; background: #202020; border-right: 1px solid #333333; display: flex; flex-direction: column; align-items: center; padding: 6px 0; gap: 4px">
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">▣</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">◧</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #1E3A5C; border-radius: 4px; color: #4A9EFF">⏵</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">⛓</span>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+          <div style="height: 44px; flex: 0 0 44px; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #202020; border-bottom: 1px solid #333333">
+            <span style="font-size: 14px; font-weight: 500">Blizzard_krea2</span>
+            <span style="font-family: JetBrains Mono, monospace; font-size: 12px; color: #A0A0A0">olympus-2 · krea2_raw.safetensors</span>
+            <span style="height: 20px; padding: 0 7px; display: inline-flex; align-items: center; gap: 5px; background: #1E3A5C; border-radius: 3px; font-size: 11px; color: #4A9EFF">● running</span>
+            <span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">ckpt 9f4c1b8e</span>
+            <span style="margin-left: auto; display: flex; gap: 8px">
+              <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Live config ▾</span>
+              <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Pause</span>
+              <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; background: #F85149; color: #180808; border-radius: 4px; font-size: 12px; font-weight: 500">Stop</span>
+            </span>
+          </div>
+
+          <div style="flex: 0 0 88px; padding: 12px; display: flex; gap: 8px; border-bottom: 1px solid #333333">
+            <div style="width: 150px; background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #A0A0A0">step</span><span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em">2,340</span><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">/ 4,700</span></div>
+            <div style="width: 150px; background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #A0A0A0">loss</span><span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em">0.0412</span><svg viewBox="0 0 60 12" width="60" height="12" preserveAspectRatio="none"><polyline points="0,3 8,6 16,4 24,8 32,6 40,9 48,7 56,10" fill="none" stroke="#6E6E6E" stroke-width="1.2"></polyline></svg></div>
+            <div style="width: 150px; background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #A0A0A0">ema</span><span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em">0.0388</span><span style="font-size: 11px; color: #3FB950">↘ steady</span></div>
+            <div style="width: 150px; background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #A0A0A0">vram</span><span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em">21.4</span><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">/ 24 GB</span></div>
+            <div style="width: 150px; background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #A0A0A0">eta</span><span style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em">1h 12m</span><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">2.9 it/s</span></div>
+            <div style="flex: 1; background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; justify-content: center">
+              <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="color: #A0A0A0; width: 42px">queued</span><span style="font-variant-numeric: tabular-nums">2 jobs</span><span style="margin-left: auto; height: 18px; padding: 0 6px; display: inline-flex; align-items: center; background: #2A2140; border-radius: 3px; font-size: 10px; color: #A371F7">‖ 1 paused</span></div>
+              <div style="display: flex; align-items: center; gap: 8px"><span style="flex: 1; height: 6px; background: #161616; border-radius: 3px; display: block; overflow: hidden"><span style="display: block; width: 50%; height: 100%; background: #4A9EFF"></span></span><span style="font-size: 11px; font-variant-numeric: tabular-nums; color: #A0A0A0">50%</span></div>
+              <div style="font-size: 10px; color: #6E6E6E; font-family: JetBrains Mono, monospace">poses_v3_flux · queued · flux2-klein-9b</div>
+            </div>
+          </div>
+
+          <div style="flex: 1; min-height: 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid #333333">
+            <div style="display: flex; align-items: center; gap: 12px; font-size: 11px">
+              <span style="display: inline-flex; align-items: center; gap: 5px; color: #A0A0A0"><span style="width: 14px; height: 1px; background: #6E6E6E"></span>loss</span>
+              <span style="display: inline-flex; align-items: center; gap: 5px; color: #A0A0A0"><span style="width: 14px; height: 2px; background: #4A9EFF"></span>ema</span>
+              <span style="display: inline-flex; align-items: center; gap: 5px; color: #A0A0A0"><span style="width: 14px; height: 1px; background: #A371F7"></span>lr</span>
+              <span style="height: 20px; padding: 0 7px; display: inline-flex; align-items: center; gap: 5px; background: #322710; border: 1px solid #6B5214; border-radius: 3px; color: #D29922">⚠ 2 outliers — click a marker to open the image</span>
+              <span style="margin-left: auto; display: inline-flex; gap: 6px"><span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #282828; border: 1px solid #333333; border-radius: 3px; color: #A0A0A0">log scale</span><span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #282828; border: 1px solid #333333; border-radius: 3px; color: #A0A0A0">reset zoom</span></span>
+            </div>
+            <div style="flex: 1; min-height: 0; position: relative; background: #101010; border: 1px solid #333333; border-radius: 6px; padding: 8px 12px">
+              <svg viewBox="0 0 1240 240" width="100%" height="100%" preserveAspectRatio="none" style="display: block">
+                <line x1="0" y1="48" x2="1240" y2="48" stroke="#2A2A2A" stroke-width="1"></line>
+                <line x1="0" y1="96" x2="1240" y2="96" stroke="#2A2A2A" stroke-width="1"></line>
+                <line x1="0" y1="144" x2="1240" y2="144" stroke="#2A2A2A" stroke-width="1"></line>
+                <line x1="0" y1="192" x2="1240" y2="192" stroke="#2A2A2A" stroke-width="1"></line>
+                <polyline points="0,44 40,66 80,38 120,84 160,60 200,98 240,72 280,112 320,86 360,124 400,96 440,134 480,104 520,146 560,116 600,152 640,124 680,162 720,132 760,170 800,140 840,176 880,148 920,182 960,154 1000,186 1040,160 1080,190 1120,164 1160,194 1200,170 1240,196" fill="none" stroke="#6E6E6E" stroke-width="1"></polyline>
+                <polyline points="0,54 80,66 160,80 240,94 320,108 400,120 480,131 560,141 640,150 720,158 800,165 880,171 960,177 1040,182 1120,187 1200,191 1240,193" fill="none" stroke="#4A9EFF" stroke-width="2"></polyline>
+                <polyline points="0,16 300,32 600,58 900,86 1240,110" fill="none" stroke="#A371F7" stroke-width="1.25" stroke-dasharray="4 4"></polyline>
+                <line x1="620" y1="0" x2="620" y2="240" stroke="#454545" stroke-width="1"></line>
+                <circle cx="360" cy="124" r="5" fill="#101010" stroke="#D29922" stroke-width="2"></circle>
+                <circle cx="920" cy="182" r="5" fill="#101010" stroke="#D29922" stroke-width="2"></circle>
+              </svg>
+              <div style="position: absolute; left: 46%; top: 12px; padding: 6px 8px; background: #282828; border: 1px solid #454545; border-radius: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); font-size: 11px; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; gap: 2px">
+                <span style="color: #6E6E6E">step <span style="color: #EDEDED">2,340</span></span>
+                <span style="color: #6E6E6E">loss <span style="color: #EDEDED">0.0412</span></span>
+                <span style="color: #6E6E6E">ema <span style="color: #4A9EFF">0.0388</span></span>
+                <span style="color: #6E6E6E">lr <span style="color: #A371F7">8.4e-5</span></span>
+              </div>
+              <div style="position: absolute; left: 24%; top: 132px; padding: 5px 8px; display: flex; align-items: center; gap: 6px; background: #282828; border: 1px solid #6B5214; border-radius: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); font-size: 11px">
+                <span style="width: 28px; height: 28px; background: repeating-linear-gradient(45deg, #1c1c1c 0 5px, #232323 5px 10px); border-radius: 2px; display: block"></span>
+                <span style="display: flex; flex-direction: column"><span style="color: #D29922">outlier · step 1,412</span><span style="font-family: JetBrains Mono, monospace; font-size: 10px; color: #A0A0A0">spin_021.jpg → open in review</span></span>
+              </div>
+            </div>
+          </div>
+
+          <div style="flex: 0 0 268px; display: flex; min-height: 0">
+            <div style="flex: 1; min-width: 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid #333333">
+              <div style="display: flex; align-items: center; gap: 8px"><span style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">samples by step</span><span style="margin-left: auto; font-size: 11px; color: #A0A0A0">compare 2000 against 800</span><span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; border: 1px solid #454545; border-radius: 3px; font-size: 11px; font-weight: 500">Maximise</span></div>
+              <div style="flex: 1; min-height: 0; background: #101010; border: 1px solid #333333; border-radius: 6px; padding: 10px; display: flex; gap: 10px; align-items: flex-start; overflow: hidden">
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center"><span style="width: 128px; height: 128px; background: repeating-linear-gradient(45deg, #1c1c1c 0 10px, #232323 10px 20px); border-radius: 3px; display: block"></span><span style="font-family: JetBrains Mono, monospace; font-size: 10px; color: #6E6E6E; font-variant-numeric: tabular-nums">400</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center"><span style="width: 128px; height: 128px; background: repeating-linear-gradient(45deg, #1c1c1c 0 10px, #232323 10px 20px); border-radius: 3px; display: block; outline: 1px solid #454545; outline-offset: 1px"></span><span style="font-family: JetBrains Mono, monospace; font-size: 10px; color: #A0A0A0; font-variant-numeric: tabular-nums">800 · ref</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center"><span style="width: 128px; height: 128px; background: repeating-linear-gradient(45deg, #1c1c1c 0 10px, #232323 10px 20px); border-radius: 3px; display: block"></span><span style="font-family: JetBrains Mono, monospace; font-size: 10px; color: #6E6E6E; font-variant-numeric: tabular-nums">1200</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center"><span style="width: 128px; height: 128px; background: repeating-linear-gradient(45deg, #1c1c1c 0 10px, #232323 10px 20px); border-radius: 3px; display: block"></span><span style="font-family: JetBrains Mono, monospace; font-size: 10px; color: #6E6E6E; font-variant-numeric: tabular-nums">1600</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center"><span style="width: 128px; height: 128px; background: repeating-linear-gradient(45deg, #1c1c1c 0 10px, #232323 10px 20px); border-radius: 3px; display: block; outline: 2px solid #4A9EFF; outline-offset: 1px"></span><span style="font-family: JetBrains Mono, monospace; font-size: 10px; color: #EDEDED; font-variant-numeric: tabular-nums">2000</span></div>
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center"><span style="width: 128px; height: 128px; background: #202020; border-radius: 3px; display: flex; align-items: center; justify-content: center"><span style="width: 16px; height: 16px; border: 1.5px solid #333333; border-top-color: #4A9EFF; border-radius: 50%; display: inline-block"></span></span><span style="font-family: JetBrains Mono, monospace; font-size: 10px; color: #6E6E6E; font-variant-numeric: tabular-nums">2400</span></div>
+              </div>
+            </div>
+            <div style="width: 520px; flex: 0 0 520px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; align-items: center; gap: 8px"><span style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">log stream</span><span style="margin-left: auto; height: 20px; padding: 0 6px; display: inline-flex; align-items: center; background: #1E3A5C; border-radius: 3px; font-size: 11px">all</span><span style="height: 20px; padding: 0 6px; display: inline-flex; align-items: center; font-size: 11px; color: #A0A0A0">warn</span><span style="height: 20px; padding: 0 6px; display: inline-flex; align-items: center; font-size: 11px; color: #A0A0A0">error</span><span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #3FB950">● tail</span></div>
+              <div style="flex: 1; min-height: 0; background: #161616; border: 1px solid #333333; border-radius: 6px; padding: 8px 10px; font-family: JetBrains Mono, monospace; font-size: 11px; line-height: 1.6; display: flex; flex-direction: column; overflow: hidden; position: relative">
+                <span style="color: #6E6E6E">14:01:58 <span style="color: #A0A0A0">step 2334 loss 0.0447 lr 8.4e-5</span></span>
+                <span style="color: #6E6E6E">14:02:02 <span style="color: #A0A0A0">step 2335 loss 0.0421 lr 8.4e-5</span></span>
+                <span style="color: #6E6E6E">14:02:05 <span style="color: #A0A0A0">step 2336 loss 0.0433 lr 8.4e-5</span></span>
+                <span style="color: #6E6E6E">14:02:08 <span style="color: #A0A0A0">step 2337 loss 0.0409 lr 8.4e-5</span></span>
+                <span style="color: #6E6E6E">14:02:11 <span style="color: #D29922">warn  sample cadence behind by 12 steps</span></span>
+                <span style="color: #6E6E6E">14:02:14 <span style="color: #A0A0A0">step 2338 loss 0.0431 lr 8.4e-5</span></span>
+                <span style="color: #6E6E6E">14:02:17 <span style="color: #A0A0A0">step 2339 loss 0.0408 lr 8.4e-5</span></span>
+                <span style="color: #6E6E6E">14:02:19 <span style="color: #A0A0A0">step 2340 loss 0.0412 lr 8.4e-5</span></span>
+                <span style="color: #6E6E6E">14:02:20 <span style="color: #3FB950">saved ckpt_2340.safetensors 172 MB</span></span>
+                <span style="position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); height: 22px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; background: #282828; border: 1px solid #454545; border-radius: 11px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); font-family: Inter, sans-serif; font-size: 11px; color: #4A9EFF">jump to latest ↓</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-size: 16px; font-weight: 600">3 — Fleet</div>
+      <div style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">1440 × 900 · six nodes, one row expanded · striping off</div>
+    </div>
+    <div style="width: 1440px; height: 900px; background: #181818; border: 1px solid #333333; display: flex; flex-direction: column; overflow: hidden">
+      <div style="height: 44px; flex: 0 0 44px; padding: 0 12px; display: flex; align-items: center; gap: 12px; background: #202020; border-bottom: 1px solid #333333">
+        <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #161616; border: 1px solid #333333; border-radius: 4px; font-family: JetBrains Mono, monospace; font-size: 12px">all nodes <span style="color: #6E6E6E">▾</span></span>
+        <span style="font-weight: 600">FluxKrea 26</span>
+        <span style="margin-left: auto; height: 28px; width: 280px; padding: 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #161616; border: 1px solid #333333; border-radius: 4px; color: #6E6E6E; font-size: 12px">⌕ Search <span style="margin-left: auto; font-family: JetBrains Mono, monospace; font-size: 11px">⌘K</span></span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #D29922">⚠ 1 of 6 unreachable</span>
+        <span style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; color: #A0A0A0">⚙</span>
+      </div>
+      <div style="flex: 1; display: flex; min-height: 0">
+        <div style="width: 48px; flex: 0 0 48px; background: #202020; border-right: 1px solid #333333; display: flex; flex-direction: column; align-items: center; padding: 6px 0; gap: 4px">
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">▣</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">◧</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">⏵</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #1E3A5C; border-radius: 4px; color: #4A9EFF">⛓</span>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+          <div style="height: 40px; flex: 0 0 40px; padding: 0 12px; display: flex; align-items: center; gap: 12px; background: #202020; border-bottom: 1px solid #333333">
+            <span style="font-size: 13px; font-weight: 500">Fleet</span>
+            <span style="font-size: 12px; color: #A0A0A0; font-variant-numeric: tabular-nums">6 nodes · 11 GPUs · 3 running</span>
+            <span style="margin-left: auto; display: flex; gap: 6px">
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #282828; border: 1px solid #333333; border-radius: 3px; font-size: 11px; color: #A0A0A0">columns ▾</span>
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px">reachable 5</span>
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #282828; border: 1px solid #333333; border-radius: 3px; font-size: 11px; color: #A0A0A0">all 6</span>
+            </span>
+          </div>
+
+          <div style="flex: 1; min-height: 0; display: flex; flex-direction: column">
+            <div style="height: 28px; flex: 0 0 28px; display: grid; grid-template-columns: 32px 150px 116px 300px 220px 68px 110px 1fr; align-items: center; background: #282828; border-bottom: 1px solid #333333; font-size: 11px; color: #A0A0A0; font-weight: 500">
+              <span style="padding-left: 10px"><span style="width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px; display: inline-block"></span></span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 4px; color: #EDEDED">node <span style="color: #4A9EFF">↑</span></span>
+              <span style="padding: 0 8px">status</span>
+              <span style="padding: 0 8px">GPU / VRAM</span>
+              <span style="padding: 0 8px">job</span>
+              <span style="padding: 0 8px; text-align: right">queue</span>
+              <span style="padding: 0 8px">datasets</span>
+              <span style="padding: 0 8px">torch / CUDA</span>
+            </div>
+
+            <div style="height: 28px; flex: 0 0 28px; display: grid; grid-template-columns: 32px 150px 116px 300px 220px 68px 110px 1fr; align-items: center; background: #1E3A5C; border-bottom: 1px solid #262626; font-size: 12px">
+              <span style="padding-left: 10px"><span style="width: 13px; height: 13px; background: #4A9EFF; border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; color: #0D1117; font-size: 9px">✓</span></span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace">olympus-1</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 5px; color: #4A9EFF">● running</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 8px">Blackwell 4000 ×2 <span style="width: 60px; height: 5px; background: #161616; border-radius: 2px; display: inline-block; overflow: hidden"><span style="display: block; width: 78%; height: 100%; background: #4A9EFF"></span></span><span style="font-variant-numeric: tabular-nums; color: #A0A0A0">18.7/24</span></span>
+              <span style="padding: 0 8px; font-variant-numeric: tabular-nums">poses_v3_flux 890/4200</span>
+              <span style="padding: 0 8px; text-align: right; font-variant-numeric: tabular-nums">2</span>
+              <span style="padding: 0 8px; font-variant-numeric: tabular-nums; color: #3FB950">4 ✓</span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">2.6.0 / 12.6</span>
+            </div>
+
+            <div style="height: 28px; flex: 0 0 28px; display: grid; grid-template-columns: 32px 150px 116px 300px 220px 68px 110px 1fr; align-items: center; background: #232323; border-bottom: 1px solid #262626; font-size: 12px">
+              <span style="padding-left: 10px"><span style="width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px; display: inline-block"></span></span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace">olympus-2</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 5px; color: #4A9EFF">● running</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 8px">Blackwell 4000 ×2 <span style="width: 60px; height: 5px; background: #161616; border-radius: 2px; display: inline-block; overflow: hidden"><span style="display: block; width: 89%; height: 100%; background: #4A9EFF"></span></span><span style="font-variant-numeric: tabular-nums; color: #A0A0A0">21.4/24</span></span>
+              <span style="padding: 0 8px; font-variant-numeric: tabular-nums">Blizzard_krea2 2340/4700</span>
+              <span style="padding: 0 8px; text-align: right; font-variant-numeric: tabular-nums">2</span>
+              <span style="padding: 0 8px; font-variant-numeric: tabular-nums; color: #3FB950">3 ✓</span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">2.6.0 / 12.6</span>
+            </div>
+
+            <div style="height: 28px; flex: 0 0 28px; display: grid; grid-template-columns: 32px 150px 116px 300px 220px 68px 110px 1fr; align-items: center; border-bottom: 1px solid #262626; font-size: 12px">
+              <span style="padding-left: 10px"><span style="width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px; display: inline-block"></span></span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace">olympus-3</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 5px; color: #8B949E">○ idle</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 8px">Blackwell 4000 <span style="width: 60px; height: 5px; background: #161616; border-radius: 2px; display: inline-block; overflow: hidden"><span style="display: block; width: 8%; height: 100%; background: #6E6E6E"></span></span><span style="font-variant-numeric: tabular-nums; color: #A0A0A0">2.0/24</span></span>
+              <span style="padding: 0 8px; color: #6E6E6E">—</span>
+              <span style="padding: 0 8px; text-align: right; font-variant-numeric: tabular-nums; color: #6E6E6E">0</span>
+              <span style="padding: 0 8px; font-variant-numeric: tabular-nums; color: #D29922">3 ⚠ drift</span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">2.6.0 / 12.6</span>
+            </div>
+
+            <div style="height: 28px; flex: 0 0 28px; display: grid; grid-template-columns: 32px 150px 116px 300px 220px 68px 110px 1fr; align-items: center; border-bottom: 1px solid #262626; font-size: 12px; background: #1E1B14">
+              <span style="padding-left: 10px"><span style="width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px; display: inline-block"></span></span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace">olympus-4</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 5px; color: #8B949E">○ idle</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 8px">Blackwell 4000 <span style="width: 60px; height: 5px; background: #161616; border-radius: 2px; display: inline-block; overflow: hidden"><span style="display: block; width: 4%; height: 100%; background: #6E6E6E"></span></span><span style="font-variant-numeric: tabular-nums; color: #A0A0A0">1.0/24</span></span>
+              <span style="padding: 0 8px; color: #6E6E6E">—</span>
+              <span style="padding: 0 8px; text-align: right; font-variant-numeric: tabular-nums; color: #6E6E6E">0</span>
+              <span style="padding: 0 8px; font-variant-numeric: tabular-nums; color: #3FB950">2 ✓</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 5px; font-family: JetBrains Mono, monospace; font-size: 11px; color: #D29922">⚠ 2.5.1 / 12.4</span>
+            </div>
+
+            <div style="height: 28px; flex: 0 0 28px; display: grid; grid-template-columns: 32px 150px 116px 300px 220px 68px 110px 1fr; align-items: center; border-bottom: 1px solid #262626; font-size: 12px">
+              <span style="padding-left: 10px"><span style="width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px; display: inline-block"></span></span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace">olympus-5</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 5px; color: #4A9EFF">● running</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 8px">Blackwell 4000 ×3 <span style="width: 60px; height: 5px; background: #161616; border-radius: 2px; display: inline-block; overflow: hidden"><span style="display: block; width: 64%; height: 100%; background: #4A9EFF"></span></span><span style="font-variant-numeric: tabular-nums; color: #A0A0A0">15.4/24</span></span>
+              <span style="padding: 0 8px; font-variant-numeric: tabular-nums">dance_contemp… 120/9800</span>
+              <span style="padding: 0 8px; text-align: right; font-variant-numeric: tabular-nums">1</span>
+              <span style="padding: 0 8px; font-variant-numeric: tabular-nums; color: #3FB950">5 ✓</span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">2.6.0 / 12.6</span>
+            </div>
+
+            <div style="height: 28px; flex: 0 0 28px; display: grid; grid-template-columns: 32px 150px 116px 300px 220px 68px 110px 1fr; align-items: center; border-bottom: 1px solid #333333; font-size: 12px; color: #6E6E6E; background: #1C1C1C">
+              <span style="padding-left: 10px"><span style="width: 13px; height: 13px; background: #161616; border: 1px solid #2E2E2E; border-radius: 3px; display: inline-block"></span></span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace">olympus-6</span>
+              <span style="padding: 0 8px; display: flex; align-items: center; gap: 5px; color: #F85149">✕ unreachable</span>
+              <span style="padding: 0 8px">—</span>
+              <span style="padding: 0 8px">—</span>
+              <span style="padding: 0 8px; text-align: right">—</span>
+              <span style="padding: 0 8px">—</span>
+              <span style="padding: 0 8px; font-family: JetBrains Mono, monospace; font-size: 11px">last seen 14:02 · 6m ago</span>
+            </div>
+
+            <div style="flex: 1; min-height: 0; display: flex; border-top: 1px solid #333333; background: #1D1D1D">
+              <div style="flex: 1; min-width: 0; padding: 12px; display: flex; flex-direction: column; gap: 10px">
+                <div style="display: flex; align-items: center; gap: 10px">
+                  <span style="font-size: 14px; font-weight: 600; font-family: JetBrains Mono, monospace">olympus-1</span>
+                  <span style="height: 20px; padding: 0 7px; display: inline-flex; align-items: center; gap: 5px; background: #1E3A5C; border-radius: 3px; font-size: 11px; color: #4A9EFF">● running</span>
+                  <span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">10.0.4.11 · tunnel 8711 · up 6d 4h</span>
+                  <span style="margin-left: auto; display: flex; gap: 8px"><span style="height: 26px; padding: 0 10px; display: inline-flex; align-items: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Open logs</span><span style="height: 26px; padding: 0 10px; display: inline-flex; align-items: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Queue job</span></span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+                  <div style="background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 8px">
+                    <div style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">gpus</div>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="width: 116px; color: #A0A0A0">Blackwell 4000 · 0</span><span style="flex: 1; height: 6px; background: #161616; border-radius: 3px; display: block; overflow: hidden"><span style="display: block; width: 89%; height: 100%; background: #4A9EFF"></span></span><span style="width: 60px; text-align: right; font-variant-numeric: tabular-nums">21.4/24</span><span style="width: 52px; text-align: right; font-variant-numeric: tabular-nums; color: #A0A0A0">72° 96%</span></div>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="width: 116px; color: #A0A0A0">Blackwell 4000 · 1</span><span style="flex: 1; height: 6px; background: #161616; border-radius: 3px; display: block; overflow: hidden"><span style="display: block; width: 66%; height: 100%; background: #4A9EFF"></span></span><span style="width: 60px; text-align: right; font-variant-numeric: tabular-nums">16.0/24</span><span style="width: 52px; text-align: right; font-variant-numeric: tabular-nums; color: #A0A0A0">64° 81%</span></div>
+                    <div style="height: 1px; background: #333333"></div>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="width: 116px; color: #A0A0A0">disk /data</span><span style="flex: 1; height: 6px; background: #161616; border-radius: 3px; display: block; overflow: hidden"><span style="display: block; width: 41%; height: 100%; background: #6E6E6E"></span></span><span style="width: 112px; text-align: right; font-variant-numeric: tabular-nums; color: #A0A0A0">1.6 / 3.8 TB</span></div>
+                  </div>
+                  <div style="background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 6px">
+                    <div style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">dataset placement</div>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="flex: 1; font-family: JetBrains Mono, monospace">poses_v3</span><span style="color: #3FB950">✓ in sync</span><span style="font-variant-numeric: tabular-nums; color: #6E6E6E; width: 64px; text-align: right">210 items</span></div>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="flex: 1; font-family: JetBrains Mono, monospace">blizzard_char_ref</span><span style="color: #3FB950">✓ in sync</span><span style="font-variant-numeric: tabular-nums; color: #6E6E6E; width: 64px; text-align: right">48 items</span></div>
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="flex: 1; font-family: JetBrains Mono, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">dance_contemporary_2601</span><span style="color: #D29922">⚠ 6 differ</span><span style="font-variant-numeric: tabular-nums; color: #6E6E6E; width: 64px; text-align: right">980 items</span></div>
+                    <div style="margin-top: 2px; padding: 6px 8px; display: flex; align-items: center; gap: 8px; background: #1A2530; border-left: 2px solid #4A9EFF; border-radius: 3px; font-size: 11px"><span style="flex: 1">Masks changed locally · 2.4 MB</span><span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #4A9EFF; color: #0D1117; border-radius: 3px; font-weight: 500">Push sidecars only</span></div>
+                  </div>
+                </div>
+                <div style="background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 6px">
+                  <div style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">job history</div>
+                  <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="width: 180px; font-family: JetBrains Mono, monospace">poses_v3_flux</span><span style="height: 18px; padding: 0 6px; display: inline-flex; align-items: center; background: #1E3A5C; border-radius: 3px; color: #4A9EFF">● running</span><span style="font-variant-numeric: tabular-nums; color: #A0A0A0">890/4200</span><span style="margin-left: auto; font-family: JetBrains Mono, monospace; color: #6E6E6E">started 13:41</span></div>
+                  <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="width: 180px; font-family: JetBrains Mono, monospace">blizzard_char_v2</span><span style="height: 18px; padding: 0 6px; display: inline-flex; align-items: center; background: #16301C; border-radius: 3px; color: #3FB950">✓ complete</span><span style="font-variant-numeric: tabular-nums; color: #A0A0A0">4700/4700</span><span style="margin-left: auto; font-family: JetBrains Mono, monospace; color: #6E6E6E">yesterday 22:08</span></div>
+                  <div style="display: flex; align-items: center; gap: 8px; font-size: 11px"><span style="width: 180px; font-family: JetBrains Mono, monospace">poses_v2_krea</span><span style="height: 18px; padding: 0 6px; display: inline-flex; align-items: center; background: #3A1A18; border-radius: 3px; color: #F85149">✕ failed</span><span style="color: #A0A0A0">CUDA OOM at step 118</span><span style="margin-left: auto; font-family: JetBrains Mono, monospace; color: #6E6E6E">yesterday 19:30</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width: 900px; font-size: 12px; color: #A0A0A0; text-wrap: pretty">Comparison down a column holds because every cell is one line, numbers are tabular and right-aligned where they compare, and status is a word plus a glyph rather than a colour. The unreachable node keeps its row, greyed with a last-seen time; the version-skew node carries warning treatment on the one cell that differs, not the whole row.</div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-size: 16px; font-weight: 600">4 — Dataset gallery</div>
+      <div style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">1440 × 900 · 12 of 210 selected, inspector in batch state</div>
+    </div>
+    <div style="width: 1440px; height: 900px; background: #181818; border: 1px solid #333333; display: flex; flex-direction: column; overflow: hidden">
+      <div style="height: 44px; flex: 0 0 44px; padding: 0 12px; display: flex; align-items: center; gap: 12px; background: #202020; border-bottom: 1px solid #333333">
+        <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #161616; border: 1px solid #333333; border-radius: 4px; font-family: JetBrains Mono, monospace; font-size: 12px">olympus-1 <span style="color: #6E6E6E">▾</span></span>
+        <span style="font-weight: 600">FluxKrea 26</span>
+        <span style="margin-left: auto; height: 28px; width: 280px; padding: 0 10px; display: inline-flex; align-items: center; gap: 8px; background: #161616; border: 1px solid #333333; border-radius: 4px; color: #6E6E6E; font-size: 12px">⌕ Search <span style="margin-left: auto; font-family: JetBrains Mono, monospace; font-size: 11px">⌘K</span></span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #3FB950">● connected</span>
+        <span style="width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; color: #A0A0A0">⚙</span>
+      </div>
+      <div style="flex: 1; display: flex; min-height: 0">
+        <div style="width: 48px; flex: 0 0 48px; background: #202020; border-right: 1px solid #333333; display: flex; flex-direction: column; align-items: center; padding: 6px 0; gap: 4px">
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #1E3A5C; border-radius: 4px; color: #4A9EFF">▣</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">◧</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">⏵</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">⛓</span>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; min-width: 0">
+          <div style="flex: 0 0 76px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; background: #202020; border-bottom: 1px solid #333333">
+            <div style="display: flex; align-items: center; gap: 10px">
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #A0A0A0; min-width: 0"><span>Datasets</span><span style="color: #6E6E6E">/</span><span style="height: 18px; padding: 0 5px; display: inline-flex; align-items: center; background: #282828; border-radius: 3px; color: #6E6E6E">…</span><span style="color: #6E6E6E">/</span><span style="max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #EDEDED; font-weight: 500; font-size: 14px">dance_contemporary_2601</span></span>
+              <span style="font-size: 12px; color: #A0A0A0; font-variant-numeric: tabular-nums; white-space: nowrap">210 items · 184 masked · 6 issues</span>
+              <span style="margin-left: auto; display: flex; gap: 8px">
+                <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Scan</span>
+                <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Validate</span>
+                <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Caption…</span>
+                <span style="height: 28px; padding: 0 10px; display: inline-flex; align-items: center; background: #4A9EFF; color: #0D1117; border-radius: 4px; font-size: 12px; font-weight: 500">Mask…</span>
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px">
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px">all <span style="font-variant-numeric: tabular-nums; color: #A0A0A0; margin-left: 5px">210</span></span>
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #282828; border: 1px solid #333333; border-radius: 3px; font-size: 11px; color: #A0A0A0">unmasked <span style="font-variant-numeric: tabular-nums; color: #6E6E6E; margin-left: 5px">26</span></span>
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #282828; border: 1px solid #333333; border-radius: 3px; font-size: 11px; color: #A0A0A0">no caption <span style="font-variant-numeric: tabular-nums; color: #6E6E6E; margin-left: 5px">3</span></span>
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; background: #282828; border: 1px solid #6B5214; border-radius: 3px; font-size: 11px; color: #D29922">no detections <span style="font-variant-numeric: tabular-nums; margin-left: 5px">6</span></span>
+              <span style="width: 1px; height: 16px; background: #333333"></span>
+              <span style="font-size: 11px; color: #A0A0A0; font-variant-numeric: tabular-nums">12 selected</span>
+              <span style="height: 22px; padding: 0 8px; display: inline-flex; align-items: center; border: 1px solid #454545; border-radius: 3px; font-size: 11px; font-weight: 500">Clear</span>
+              <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #6E6E6E"><span style="font-family: JetBrains Mono, monospace">[ ]</span> cell size</span>
+            </div>
+          </div>
+
+          <div style="flex: 1; display: flex; min-height: 0">
+            <div style="flex: 1; min-width: 0; padding: 12px; display: grid; grid-template-columns: repeat(8, 1fr); grid-auto-rows: min-content; gap: 8px; align-content: start; overflow: hidden">
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; outline: 2px solid #4A9EFF; outline-offset: -2px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #4A9EFF; border-radius: 3px; display: flex; align-items: center; justify-content: center; color: #0D1117; font-size: 9px">✓</span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★★★</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; outline: 2px solid #4A9EFF; outline-offset: -2px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #4A9EFF; border-radius: 3px; display: flex; align-items: center; justify-content: center; color: #0D1117; font-size: 9px">✓</span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★★☆</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; outline: 2px solid #4A9EFF; outline-offset: -2px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #4A9EFF; border-radius: 3px; display: flex; align-items: center; justify-content: center; color: #0D1117; font-size: 9px">✓</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #D29922">⚠</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; outline: 2px solid #4A9EFF; outline-offset: -2px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #4A9EFF; border-radius: 3px; display: flex; align-items: center; justify-content: center; color: #0D1117; font-size: 9px">✓</span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★★★</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #A0A0A0; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★☆☆</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #6E6E6E">no cap</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; border: 1px solid #6B5214"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #D29922">⚠ 0 boxes</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; outline: 2px solid #4A9EFF; outline-offset: -2px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #4A9EFF; border-radius: 3px; display: flex; align-items: center; justify-content: center; color: #0D1117; font-size: 9px">✓</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; outline: 2px solid #4A9EFF; outline-offset: -2px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #4A9EFF; border-radius: 3px; display: flex; align-items: center; justify-content: center; color: #0D1117; font-size: 9px">✓</span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★★☆</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; outline: 2px solid #4A9EFF; outline-offset: -2px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #4A9EFF; border-radius: 3px; display: flex; align-items: center; justify-content: center; color: #0D1117; font-size: 9px">✓</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; outline: 2px solid #4A9EFF; outline-offset: -2px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #4A9EFF; border-radius: 3px; display: flex; align-items: center; justify-content: center; color: #0D1117; font-size: 9px">✓</span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★★★</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★★☆</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px; border: 1px solid #6B5214"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #D29922">⚠ 0 boxes</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★☆☆</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #6E6E6E">no cap</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★★★</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★★☆</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="position: relative; aspect-ratio: 3 / 4; background: repeating-linear-gradient(45deg, #1c1c1c 0 9px, #232323 9px 18px); border-radius: 3px"><span style="position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; background: #161616; border: 1px solid #454545; border-radius: 3px"></span><span style="position: absolute; left: 5px; bottom: 5px; font-size: 9px; color: #A0A0A0">★★★★</span><span style="position: absolute; right: 5px; bottom: 5px; font-size: 9px; color: #3FB950">✓</span></div>
+              <div style="aspect-ratio: 3 / 4; background: #202020; border-radius: 3px"></div>
+              <div style="aspect-ratio: 3 / 4; background: #1D1D1D; border-radius: 3px"></div>
+              <div style="aspect-ratio: 3 / 4; background: #202020; border-radius: 3px"></div>
+              <div style="aspect-ratio: 3 / 4; background: #1D1D1D; border-radius: 3px"></div>
+              <div style="aspect-ratio: 3 / 4; background: #202020; border-radius: 3px"></div>
+              <div style="aspect-ratio: 3 / 4; background: #1D1D1D; border-radius: 3px"></div>
+              <div style="aspect-ratio: 3 / 4; background: #202020; border-radius: 3px"></div>
+              <div style="aspect-ratio: 3 / 4; background: #1D1D1D; border-radius: 3px"></div>
+            </div>
+
+            <div style="width: 320px; flex: 0 0 320px; background: #202020; border-left: 1px solid #333333; display: flex; flex-direction: column; min-height: 0">
+              <div style="padding: 12px; border-bottom: 1px solid #333333; display: flex; align-items: center; gap: 8px">
+                <span style="font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums">12 items selected</span>
+                <span style="margin-left: auto; font-size: 11px; color: #6E6E6E">of 210</span>
+              </div>
+              <div style="padding: 12px; border-bottom: 1px solid #333333; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12px">
+                <span style="text-align: right; color: #A0A0A0">dimensions</span><span style="font-variant-numeric: tabular-nums">1536 × 2048 <span style="color: #6E6E6E">(10) · mixed (2)</span></span>
+                <span style="text-align: right; color: #A0A0A0">captions</span><span>11 present · <span style="color: #D29922">1 missing</span></span>
+                <span style="text-align: right; color: #A0A0A0">masks</span><span>10 written · <span style="color: #D29922">2 pending</span></span>
+                <span style="text-align: right; color: #A0A0A0">quality</span><span style="font-variant-numeric: tabular-nums">avg 3.4</span>
+                <span style="text-align: right; color: #A0A0A0">total size</span><span style="font-variant-numeric: tabular-nums">42.8 MB</span>
+              </div>
+              <div style="padding: 12px; border-bottom: 1px solid #333333; display: flex; flex-direction: column; gap: 8px">
+                <div style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">batch caption</div>
+                <div style="min-height: 64px; padding: 8px; background: #161616; border: 1px solid #333333; border-radius: 4px; font-size: 12px; color: #6E6E6E">Append to all 12 captions…</div>
+                <div style="display: flex; gap: 8px"><span style="flex: 1; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Append to all</span><span style="flex: 1; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Replace</span></div>
+              </div>
+              <div style="padding: 12px; border-bottom: 1px solid #333333; display: flex; flex-direction: column; gap: 8px">
+                <div style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">batch actions</div>
+                <span style="height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #4A9EFF; color: #0D1117; border-radius: 4px; font-size: 12px; font-weight: 500">Detect faces on 12</span>
+                <span style="height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Send 12 to review</span>
+                <span style="height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Set quality rating…</span>
+                <span style="height: 28px; display: inline-flex; align-items: center; justify-content: center; background: #F85149; color: #180808; border-radius: 4px; font-size: 12px; font-weight: 500">Delete 12 items</span>
+              </div>
+              <div style="flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 6px; justify-content: flex-end">
+                <div style="padding: 8px 10px; display: flex; gap: 8px; background: #262010; border-left: 2px solid #D29922; border-radius: 3px; font-size: 12px"><span style="color: #D29922">⚠</span><span style="text-wrap: pretty">2 of the selected items have zero detections. Export refuses until they are reviewed.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-size: 16px; font-weight: 600">1b — Mask review at the minimum viewport</div>
+      <div style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">1280 × 720 · connection lost · canvas 752</div>
+    </div>
+    <div style="width: 1280px; height: 720px; background: #181818; border: 1px solid #333333; display: flex; flex-direction: column; overflow: hidden">
+      <div style="height: 28px; flex: 0 0 28px; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #3A1A18; border-bottom: 1px solid #5C2925; font-size: 12px">
+        <span style="color: #F85149">✕</span><span>olympus-1 unreachable — event stream dropped, box edits held locally</span><span style="color: #A0A0A0; font-variant-numeric: tabular-nums">reconnecting in 4s</span>
+        <span style="margin-left: auto; display: flex; gap: 8px"><span style="height: 20px; padding: 0 8px; display: inline-flex; align-items: center; border: 1px solid #5C2925; border-radius: 3px; font-size: 11px; font-weight: 500">Retry now</span><span style="height: 20px; padding: 0 8px; display: inline-flex; align-items: center; color: #A0A0A0; font-size: 11px">Details</span></span>
+      </div>
+      <div style="height: 40px; flex: 0 0 40px; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #202020; border-bottom: 1px solid #333333">
+        <span style="height: 26px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; background: #161616; border: 1px solid #333333; border-radius: 4px; font-family: JetBrains Mono, monospace; font-size: 11px">olympus-1 <span style="color: #6E6E6E">▾</span></span>
+        <span style="font-size: 12px; white-space: nowrap"><span style="font-family: JetBrains Mono, monospace">poses_v3</span> · review</span>
+        <span style="font-size: 11px; color: #A0A0A0; font-variant-numeric: tabular-nums; white-space: nowrap">184/210</span>
+        <span style="height: 20px; padding: 0 7px; display: inline-flex; align-items: center; background: #322710; border: 1px solid #6B5214; border-radius: 3px; font-size: 11px; color: #D29922; white-space: nowrap">⚠ 6 no detections</span>
+        <span style="margin-left: auto; display: flex; gap: 6px">
+          <span style="height: 20px; padding: 0 7px; display: inline-flex; align-items: center; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px">unreviewed 26</span>
+          <span style="height: 20px; padding: 0 7px; display: inline-flex; align-items: center; background: #282828; border: 1px solid #333333; border-radius: 3px; font-size: 11px; color: #A0A0A0">all</span>
+          <span style="width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #454545; border-radius: 4px; font-size: 11px; color: #A0A0A0">⚙</span>
+        </span>
+      </div>
+      <div style="flex: 1; display: flex; min-height: 0">
+        <div style="width: 48px; flex: 0 0 48px; background: #202020; border-right: 1px solid #333333; display: flex; flex-direction: column; align-items: center; padding: 6px 0; gap: 4px">
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">▣</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #1E3A5C; border-radius: 4px; color: #4A9EFF">◧</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">⏵</span>
+          <span style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #A0A0A0">⛓</span>
+        </div>
+        <div style="width: 220px; flex: 0 0 220px; background: #202020; border-right: 1px solid #333333; display: flex; flex-direction: column; min-height: 0">
+          <div style="height: 24px; flex: 0 0 24px; padding: 0 10px; display: flex; align-items: center; background: #322710; border-bottom: 1px solid #6B5214; font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #D29922"><span>⚠ no detections</span><span style="margin-left: auto; font-variant-numeric: tabular-nums">6</span></div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626; background: #241E10; border-left: 2px solid #D29922"><span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px">kick_003</span><span style="font-size: 10px; color: #D29922">⚠ 0 boxes</span></span></div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626; background: #241E10; border-left: 2px solid #D29922"><span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px">kick_004</span><span style="font-size: 10px; color: #D29922">⚠ 0 boxes</span></span></div>
+          <div style="height: 22px; flex: 0 0 22px; padding: 0 10px; display: flex; align-items: center; background: #232323; border-bottom: 1px solid #333333; border-top: 1px solid #333333; font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: #6E6E6E"><span>unreviewed</span><span style="margin-left: auto; font-variant-numeric: tabular-nums">26</span></div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626; background: #1E3A5C; border-left: 2px solid #4A9EFF"><span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block; position: relative"><span style="position: absolute; left: 6px; top: 5px; width: 9px; height: 11px; border: 1px solid #00E5FF"></span></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px">punch_014</span><span style="font-size: 10px; color: #A0A0A0">3 boxes · unreviewed</span></span></div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626"><span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">punch_015</span><span style="font-size: 10px; color: #6E6E6E">1 box · unreviewed</span></span></div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626"><span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">punch_016</span><span style="font-size: 10px; color: #6E6E6E">2 boxes · unreviewed</span></span></div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626"><span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">throw_002</span><span style="font-size: 10px; color: #3FB950">✓ reviewed · 2 boxes</span></span></div>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-bottom: 1px solid #262626"><span style="width: 34px; height: 34px; flex: 0 0 34px; background: repeating-linear-gradient(45deg, #1c1c1c 0 6px, #232323 6px 12px); border-radius: 2px; display: block"></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0">throw_003</span><span style="font-size: 10px; color: #3FB950">✓ reviewed · 1 box</span></span></div>
+          <div style="flex: 1; padding: 8px 10px; font-family: JetBrains Mono, monospace; font-size: 10px; color: #6E6E6E">virtualized · 210</div>
+        </div>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+          <div style="flex: 1; position: relative; background: #101010; display: flex; align-items: center; justify-content: center; overflow: hidden">
+            <div style="position: relative; width: 430px; height: 100%; background: repeating-linear-gradient(45deg, #1a1a1a 0 12px, #212121 12px 24px)">
+              <span style="position: absolute; left: 10px; top: 8px; font-family: JetBrains Mono, monospace; font-size: 10px; color: #6E6E6E">punch_014.jpg · 1536 × 2048</span>
+              <div style="position: absolute; left: 236px; top: 92px; width: 70px; height: 80px; background: rgba(255, 0, 170, 0.35); filter: blur(3px)"></div>
+              <div style="position: absolute; left: 88px; top: 226px; width: 84px; height: 108px; background: rgba(255, 0, 170, 0.35); filter: blur(3px)"></div>
+              <div style="position: absolute; left: 245px; top: 101px; width: 52px; height: 62px; border: 1px solid #00E5FF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.6)"></div>
+              <div style="position: absolute; left: 176px; top: 346px; width: 48px; height: 56px; border: 1px solid #FFD000; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.6)"></div>
+              <div style="position: absolute; left: 97px; top: 235px; width: 64px; height: 90px; border: 2px solid #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.6)">
+                <span style="position: absolute; left: -4px; top: -4px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                <span style="position: absolute; right: -4px; top: -4px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                <span style="position: absolute; left: -4px; bottom: -4px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                <span style="position: absolute; right: -4px; bottom: -4px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                <span style="position: absolute; left: 50%; top: -4px; margin-left: -3.5px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                <span style="position: absolute; left: 50%; bottom: -4px; margin-left: -3.5px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                <span style="position: absolute; left: -4px; top: 50%; margin-top: -3.5px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                <span style="position: absolute; right: -4px; top: 50%; margin-top: -3.5px; width: 7px; height: 7px; background: #FFFFFF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6)"></span>
+                <span style="position: absolute; left: 0; top: -18px; height: 15px; padding: 0 4px; display: inline-flex; align-items: center; background: rgba(0, 0, 0, 0.75); font-family: JetBrains Mono, monospace; font-size: 9px; color: #FFFFFF; font-variant-numeric: tabular-nums">412, 88 · 96 × 128</span>
+              </div>
+            </div>
+            <span style="position: absolute; right: 10px; top: 10px; height: 20px; padding: 0 7px; display: inline-flex; align-items: center; background: rgba(0, 0, 0, 0.6); border-radius: 3px; font-family: JetBrains Mono, monospace; font-size: 11px; font-variant-numeric: tabular-nums">52%</span>
+            <span style="position: absolute; left: 10px; bottom: 10px; height: 20px; padding: 0 7px; display: inline-flex; align-items: center; gap: 6px; background: rgba(0, 0, 0, 0.6); border-radius: 3px; font-size: 11px; color: #D29922">⚠ edits held locally · 3 unsaved</span>
+          </div>
+          <div style="height: 36px; flex: 0 0 36px; padding: 0 10px; display: flex; align-items: center; gap: 8px; background: #202020; border-top: 1px solid #333333; font-size: 12px">
+            <span style="display: inline-flex; flex: 0 0 auto; border: 1px solid #333333; border-radius: 4px; overflow: hidden"><span style="height: 24px; padding: 0 9px; display: inline-flex; align-items: center; background: #1E3A5C; font-size: 11px; font-weight: 500">fit</span><span style="height: 24px; padding: 0 9px; display: inline-flex; align-items: center; border-left: 1px solid #333333; font-size: 11px; color: #A0A0A0">1:1</span></span>
+            <span style="height: 24px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px">overlay <span style="font-family: JetBrains Mono, monospace; color: #A0A0A0">M</span></span>
+            <span style="height: 24px; padding: 0 8px; display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px">detected <span style="font-family: JetBrains Mono, monospace; color: #A0A0A0">D</span></span>
+            <span style="font-size: 11px; color: #6E6E6E; flex: 0 0 auto"><span style="font-family: JetBrains Mono, monospace; color: #A0A0A0">H</span>-drag to pan</span>
+            <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; font-variant-numeric: tabular-nums; color: #A0A0A0"><span>◀</span><span>184/210</span><span>▶</span></span>
+          </div>
+        </div>
+        <div style="width: 240px; flex: 0 0 240px; background: #202020; border-left: 1px solid #333333; display: flex; flex-direction: column; min-height: 0">
+          <div style="padding: 10px; border-bottom: 1px solid #333333; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; align-items: center"><span style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">boxes</span><span style="margin-left: auto; font-size: 11px; color: #A0A0A0">1 + 2</span></div>
+            <div style="height: 24px; padding: 0 7px; display: flex; align-items: center; gap: 6px; background: #161616; border: 1px solid #333333; border-radius: 3px; font-size: 11px"><span style="width: 8px; height: 8px; border: 1px solid #00E5FF"></span><span>detected</span><span style="margin-left: auto; font-family: JetBrains Mono, monospace; color: #A0A0A0; font-variant-numeric: tabular-nums">68 × 82</span></div>
+            <div style="height: 24px; padding: 0 7px; display: flex; align-items: center; gap: 6px; background: #161616; border: 1px solid #333333; border-radius: 3px; font-size: 11px"><span style="width: 8px; height: 8px; border: 1px solid #FFD000"></span><span>manual</span><span style="margin-left: auto; font-family: JetBrains Mono, monospace; color: #A0A0A0; font-variant-numeric: tabular-nums">62 × 74</span></div>
+            <div style="height: 24px; padding: 0 7px; display: flex; align-items: center; gap: 6px; background: #1E3A5C; border: 1px solid #4A9EFF; border-radius: 3px; font-size: 11px"><span style="width: 8px; height: 8px; border: 1px solid #FFFFFF"></span><span>manual</span><span style="margin-left: auto; font-family: JetBrains Mono, monospace; font-variant-numeric: tabular-nums">96 × 128</span></div>
+            <div style="display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 4px 6px; font-size: 11px; align-items: center; margin-top: 2px">
+              <span style="color: #A0A0A0">x</span><span style="height: 22px; padding: 0 5px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">412</span>
+              <span style="color: #A0A0A0">w</span><span style="height: 22px; padding: 0 5px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">96</span>
+              <span style="color: #A0A0A0">y</span><span style="height: 22px; padding: 0 5px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">88</span>
+              <span style="color: #A0A0A0">h</span><span style="height: 22px; padding: 0 5px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 3px; font-variant-numeric: tabular-nums">128</span>
+            </div>
+          </div>
+          <div style="padding: 10px; border-bottom: 1px solid #333333; display: flex; flex-direction: column; gap: 9px">
+            <div style="font-family: JetBrains Mono, monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6E6E">mask</div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px"><span style="width: 44px; color: #A0A0A0">expand</span><span style="flex: 1; position: relative; height: 4px; background: #161616; border-radius: 2px; display: block"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 53%; background: #4A9EFF; border-radius: 2px"></span><span style="position: absolute; left: 53%; top: -4px; width: 11px; height: 11px; margin-left: -5.5px; background: #EDEDED; border-radius: 50%"></span></span><span style="width: 42px; text-align: right; font-variant-numeric: tabular-nums">1.60×</span></div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px"><span style="width: 44px; color: #A0A0A0">feather</span><span style="flex: 1; position: relative; height: 4px; background: #161616; border-radius: 2px; display: block"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 24%; background: #4A9EFF; border-radius: 2px"></span><span style="position: absolute; left: 24%; top: -4px; width: 11px; height: 11px; margin-left: -5.5px; background: #EDEDED; border-radius: 50%"></span></span><span style="width: 42px; text-align: right; font-variant-numeric: tabular-nums">12px</span></div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11px"><span style="width: 44px; color: #A0A0A0">opacity</span><span style="flex: 1; position: relative; height: 4px; background: #161616; border-radius: 2px; display: block"><span style="position: absolute; left: 0; top: 0; bottom: 0; width: 35%; background: #4A9EFF; border-radius: 2px"></span><span style="position: absolute; left: 35%; top: -4px; width: 11px; height: 11px; margin-left: -5.5px; background: #EDEDED; border-radius: 50%"></span></span><span style="width: 42px; text-align: right; font-variant-numeric: tabular-nums">35%</span></div>
+          </div>
+          <div style="padding: 10px; display: flex; flex-direction: column; gap: 8px">
+            <span style="height: 26px; padding: 0 8px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 4px; font-size: 12px">yunet <span style="margin-left: auto; color: #6E6E6E">▾</span></span>
+            <span style="height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500; color: #6E6E6E">Re-detect <span style="font-family: JetBrains Mono, monospace; font-size: 11px; margin-left: 6px">R</span></span>
+            <span style="font-size: 10px; color: #6E6E6E; text-wrap: pretty">Re-detect needs the node. Disabled while the tunnel is down; box editing continues locally.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width: 900px; font-size: 12px; color: #A0A0A0; text-wrap: pretty">At 1280 the inspector drops to 240 and the connection banner takes 28px off the top, leaving the canvas 752 × 628 — a 3:4 frame renders at 52% instead of 68%. Still workable: box geometry stays readable and the filmstrip keeps its two-line rows. What gives way first at this width is the detector panel copy, not the image.</div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; align-items: baseline; gap: 12px">
+      <div style="font-size: 16px; font-weight: 600">Edge states</div>
+      <div style="font-family: JetBrains Mono, monospace; font-size: 11px; color: #6E6E6E">validation report · destructive confirm · fresh dataset</div>
+    </div>
+    <div style="display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap">
+      <div style="width: 460px; background: #202020; border: 1px solid #333333; border-radius: 6px; overflow: hidden">
+        <div style="height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 10px; background: #282828; border-bottom: 1px solid #333333; font-size: 12px"><span style="font-weight: 600">Validation · poses_v3</span><span style="margin-left: auto; color: #F85149">3 errors</span><span style="color: #D29922">9 warnings</span></div>
+        <div style="height: 28px; padding: 0 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #262626; font-size: 12px"><span style="color: #F85149">✕</span><span>Mask dimensions differ from source</span><span style="margin-left: auto; font-variant-numeric: tabular-nums; color: #6E6E6E">3</span><span style="color: #6E6E6E">▾</span></div>
+        <div style="height: 26px; padding: 0 12px 0 32px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #262626; font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0"><span>guard_011.jpg</span><span style="margin-left: auto; font-variant-numeric: tabular-nums">1536×2048 → 1024×1365</span></div>
+        <div style="height: 26px; padding: 0 12px 0 32px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #262626; font-family: JetBrains Mono, monospace; font-size: 11px; color: #A0A0A0"><span>guard_012.jpg</span><span style="margin-left: auto; font-variant-numeric: tabular-nums">1536×2048 → 1024×1365</span></div>
+        <div style="height: 28px; padding: 0 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #262626; font-size: 12px"><span style="color: #D29922">⚠</span><span>Missing masks</span><span style="margin-left: auto; font-variant-numeric: tabular-nums; color: #6E6E6E">26</span><span style="color: #6E6E6E">▸</span></div>
+        <div style="height: 28px; padding: 0 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #262626; font-size: 12px"><span style="color: #D29922">⚠</span><span>Items with zero boxes</span><span style="margin-left: auto; font-variant-numeric: tabular-nums; color: #6E6E6E">6</span><span style="color: #6E6E6E">▸</span></div>
+        <div style="height: 28px; padding: 0 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #262626; font-size: 12px"><span style="color: #D29922">⚠</span><span>Orphaned sidecars</span><span style="margin-left: auto; font-variant-numeric: tabular-nums; color: #6E6E6E">2</span><span style="color: #6E6E6E">▸</span></div>
+        <div style="padding: 10px 12px; display: flex; align-items: center; gap: 8px"><span style="font-size: 11px; color: #6E6E6E; flex: 1">Export refuses to run while errors remain.</span><span style="height: 26px; padding: 0 10px; display: inline-flex; align-items: center; border: 1px solid #454545; border-radius: 4px; font-size: 12px; font-weight: 500">Re-validate</span><span style="height: 26px; padding: 0 10px; display: inline-flex; align-items: center; background: #4A9EFF; color: #0D1117; border-radius: 4px; font-size: 12px; font-weight: 500">Fix in review</span></div>
+      </div>
+
+      <div style="width: 400px; background: #282828; border: 1px solid #454545; border-radius: 6px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="font-size: 16px; font-weight: 600; letter-spacing: -0.01em">Delete 210 masks</div>
+        <div style="font-size: 12px; color: #A0A0A0; text-wrap: pretty">Every mask in poses_v3 is removed from <span style="font-family: JetBrains Mono, monospace; font-size: 11px">D:/Projects_26/LoRA_Training_data/Poses/masks</span>. Box sidecars are kept, so masks can be regenerated without re-detecting.</div>
+        <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-size: 11px; color: #A0A0A0">Type the dataset name to confirm</span><span style="height: 28px; padding: 0 8px; display: flex; align-items: center; background: #161616; border: 1px solid #333333; border-radius: 4px; font-family: JetBrains Mono, monospace; font-size: 12px; color: #6E6E6E">poses_v3</span></div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end"><span style="height: 28px; padding: 0 12px; display: inline-flex; align-items: center; color: #A0A0A0; font-weight: 500">Cancel</span><span style="height: 28px; padding: 0 12px; display: inline-flex; align-items: center; background: #F85149; color: #180808; border-radius: 4px; font-weight: 500">Delete 210 masks</span></div>
+      </div>
+
+      <div style="width: 400px; background: #202020; border: 1px solid #333333; border-radius: 6px; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+        <div style="width: 40px; height: 40px; border: 1.5px solid #454545; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #6E6E6E; font-size: 20px">▣</div>
+        <div style="font-size: 14px; font-weight: 500">blizzard_char_ref has not been scanned</div>
+        <div style="font-size: 12px; color: #A0A0A0; max-width: 280px; text-wrap: pretty">48 files are on disk at the configured root. Scan to read dimensions, build thumbnails and pick up existing captions.</div>
+        <span style="height: 28px; padding: 0 12px; display: inline-flex; align-items: center; background: #4A9EFF; color: #0D1117; font-weight: 500; border-radius: 4px; margin-top: 4px">Scan 48 files</span>
+      </div>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1560,&quot;height&quot;:1000}}"></script>
+</body>
+</html>

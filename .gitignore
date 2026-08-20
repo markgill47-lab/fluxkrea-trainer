@@ -1,0 +1,15 @@
+# Design source archives — their contents are extracted into design/
+*.zip
+
+# Duplicate of docs/, carried along by the design tool
+design/uploads/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# OS
+Thumbs.db
+.DS_Store

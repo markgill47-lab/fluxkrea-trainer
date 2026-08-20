@@ -1,0 +1,92 @@
+# FluxKrea Trainer 26
+
+A rewrite of the LoRA training GUI at `D:\Projects_26\AI_Image_Trainer`,
+targeting FLUX.2 Klein and Krea 2 across a distributed lab fleet.
+
+**Status: design only.** No code yet. This folder holds the plan.
+v1 stays the working tool until v2 can genuinely replace it.
+
+## Why rewrite
+
+The trigger was a small feature: masking faces in pose-LoRA training
+images so the pose LoRA stops fighting the character reference LoRA for
+control of the face. Adding it to v1 meant touching three separate
+hand-rolled copies of "…and also handle the sidecar file", any one of
+which silently breaks the image-to-mask pairing if missed.
+
+That is a symptom. The wider problems, documented in
+[docs/01-v1-audit.md](docs/01-v1-audit.md):
+
+- **Backends with no declared interface.** Three of them, each
+  re-implementing the same lifecycle with wildly asymmetric features.
+- **A 2,420-line god object.** `UIManager` has 66 methods; one of them,
+  `setup_config_tab`, is 431 lines.
+- **Logic welded to Qt.** Processing functions construct
+  `QProgressDialog` and `QMessageBox` directly, so nothing can be tested,
+  scripted, or run over SSH.
+- **Config sprawl.** Four overlapping stores with unclear precedence, two
+  of them gitignored for holding secrets — so the app's real
+  configuration cannot be shared between the dev box and the fleet.
+
+## How this gets used
+
+This is not a single-desktop app. The working setup is:
+
+- A **fleet of Linux boxes** with RTX PRO Blackwell 4000 cards, each
+  doing the actual training.
+- **One laptop**, driving all of them over SSH.
+- **Windows and Linux both first-class** — development on Windows,
+  production on the fleet.
+
+That shapes the architecture more than anything else: the core is
+headless, a daemon on each node exposes a full HTTP API, and every UI is
+a client of that API rather than the thing that owns the logic. See
+[docs/06-remote-and-fleet.md](docs/06-remote-and-fleet.md).
+
+## Decisions
+
+| Question | Decision |
+|---|---|
+| Scope | Full rewrite — dataset tools *and* training |
+| Kohya / sd-scripts | **Dropped.** Dead since January; SD/SDXL only |
+| Structure | Headless core; per-node daemon exposing an HTTP API |
+| Remote control | REST + SSE, localhost-bound, driven over SSH tunnels |
+| Fleet | Client-side aggregation over a node list. No coordinator |
+| Dataset storage | Node-local. Sync by manifest diff over rsync or tar |
+| Platforms | Windows and Linux, equally supported |
+| Face detection | OpenCV YuNet now, behind a pluggable detector interface |
+| Mask delivery | ai-toolkit `mask_path` loss masking, not baked-in pixels |
+| UI layer | Browser client served by the daemon. **Qt is not carried forward** |
+
+## Documents
+
+| | |
+|---|---|
+| **[00 — build handoff](docs/00-build-handoff.md)** | **Start here.** State, settled decisions, and what P0 is |
+| [01 — v1 audit](docs/01-v1-audit.md) | What exists today, what carries over, what dies |
+| [02 — architecture](docs/02-architecture.md) | Core/daemon/client split, package layout, backend protocol |
+| [03 — dataset model](docs/03-dataset-model.md) | The `DatasetItem` invariant that started all this |
+| [04 — face masking](docs/04-face-masking.md) | The originating feature, specified |
+| [05 — roadmap](docs/05-roadmap.md) | Phases, port-vs-rewrite, risks, open questions |
+| [06 — remote and fleet](docs/06-remote-and-fleet.md) | The API, the daemon, multi-node, security |
+| [07 — visual language](docs/07-visual-language.md) | Colour, type, spacing, motion, asset rules |
+| [08 — component catalog](docs/08-component-catalog.md) | Every element the client needs |
+| [09 — screens and layout](docs/09-screens-and-layout.md) | How it is all arranged, plus keyboard maps |
+| [10 — graphics stack](docs/10-graphics-stack.md) | Rendering, canvas, charts, virtualization, budgets |
+
+Docs 07–10 are the design catalog — written to be handed to design work
+as input, not produced by it.
+
+## Ground rules
+
+1. **v1 keeps working.** No changes to `AI_Image_Trainer` except bug
+   fixes until this is genuinely ahead.
+2. **`klein_trainer/` gets ported, not rewritten.** 4,165 lines of
+   working ML code, and the only reason this project is interesting.
+3. **Nothing in `core/` imports a UI toolkit.** Enforced by a test.
+4. **Every dataset operation goes through `DatasetItem`.** No function
+   invents its own idea of which files belong together.
+5. **Anything the UI can do, the API can do.** No feature reachable only
+   by clicking, or the fleet becomes second-class.
+6. **No platform-specific paths, launchers, or filename assumptions.**
+   The fleet is Linux; the desk is Windows.
