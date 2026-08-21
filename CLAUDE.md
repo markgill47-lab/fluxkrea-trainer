@@ -51,12 +51,15 @@ at a real ai-toolkit checkout; use `ai-toolkit-krea2`, not the rotted
 - **Do not tie the daemon's lifetime to your session.** Training runs take
   hours. Tell the user to run `.\serve.ps1` in their own terminal rather
   than starting it from a tool call.
-- **That terminal must be outside the Claude desktop app.** A shell inside
-  a Windows MSIX package hands every child a private `%APPDATA%` and
-  `%LOCALAPPDATA%`: same path strings, different files, invisible from
-  within. The daemon then reads a config nobody edits and writes one nobody
-  reads. `fk serve` prints a warning when it detects this - believe it, and
-  check the first four startup lines before believing anything else.
+- **`%APPDATA%` on this desk is not reliable.** A shell running inside a
+  Windows app package hands its children a private view of `%APPDATA%` and
+  `%LOCALAPPDATA%` - same path strings, different files, no signal from
+  inside. The daemon read a `config.toml` nobody was editing and wrote one
+  nobody could read, for an afternoon. `.fluxkrea/` beside `serve.ps1` is
+  the answer: the scripts set `FLUXKREA_HOME` to it, so config, data, cache
+  and state all live on D: where nothing can redirect them. **Check the
+  first four startup lines before believing anything else** - they name the
+  config file, the home, the package directory and the backend.
 
 ## Environment
 

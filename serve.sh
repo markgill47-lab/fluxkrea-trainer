@@ -42,8 +42,16 @@ mkdir -p logs
 log="$root/logs/daemon.log"
 
 echo
+# One directory for config, data and state when .fluxkrea/ is present -
+# see the note in serve.ps1. Linux has no package redirection, but the two
+# scripts stay interchangeable (rule 4).
+if [ -z "${FLUXKREA_HOME:-}" ] && [ -d "$root/.fluxkrea" ]; then
+    export FLUXKREA_HOME="$root/.fluxkrea"
+fi
+
 echo "FluxKrea daemon"
 echo "  project   $root"
+[ -n "${FLUXKREA_HOME:-}" ] && echo "  home      $FLUXKREA_HOME"
 echo "  url       http://localhost:$port"
 echo "  log       $log"
 echo "  stop      Ctrl+C"

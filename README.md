@@ -152,6 +152,15 @@ leaves an interrupted job and a trainer still holding VRAM. Output is
 mirrored to `logs/daemon.log`, because "it crashed" is not a diagnosis and
 a window that closed took the traceback with it.
 
+If a `.fluxkrea/` directory exists beside the script, both launchers point
+`FLUXKREA_HOME` at it, so config, data, cache and state live there instead
+of in the OS locations. That exists because `%APPDATA%` is not dependable
+on every Windows desk: a shell running inside an app package gives its
+children a *private* view of it, with the same path strings and different
+files, so the daemon reads a config nobody is editing and writes one nobody
+can read. One directory on a real disk cannot be redirected. Delete it to
+go back to the OS locations.
+
 For a node that should come back after a reboot, use the systemd unit in
 [deploy/](deploy/README.md) rather than this.
 

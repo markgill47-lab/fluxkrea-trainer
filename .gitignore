@@ -36,3 +36,4 @@ Output/
 
 # Daemon output, written by serve.ps1 / serve.sh.
 logs/
+.fluxkrea/

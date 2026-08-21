@@ -48,6 +48,22 @@ function Wait-IfWatched {
     if (-not [Console]::IsInputRedirected) { Read-Host "Press Enter to close" | Out-Null }
 }
 
+# --- where config, data and state live -------------------------------------
+# %APPDATA% is not always what it says it is. A shell running inside a
+# Windows app package hands its children a private view of it: the same
+# path strings, different files, and no signal from inside the container.
+# A daemon started that way read a config.toml nobody was editing, wrote
+# settings that never appeared on disk, and failed every run with
+# "backends.aitoolkit_path is not set" while that exact file had it set.
+#
+# So if .fluxkrea\ exists beside this script, everything goes there instead:
+# one directory, on a real disk, that no package can redirect. Delete it to
+# go back to the OS locations.
+if (-not $env:FLUXKREA_HOME) {
+    $localHome = Join-Path $root '.fluxkrea'
+    if (Test-Path $localHome) { $env:FLUXKREA_HOME = $localHome }
+}
+
 # --- the interpreter -------------------------------------------------------
 # The project venv, not whatever python happens to be on PATH: this package
 # is installed in editable mode there, and a system python will either not
@@ -93,6 +109,7 @@ Write-Host ""
 Write-Host "FluxKrea daemon" -ForegroundColor Cyan
 Write-Host "  project   $root"
 Write-Host "  url       http://localhost:$configuredPort"
+if ($env:FLUXKREA_HOME) { Write-Host "  home      $env:FLUXKREA_HOME" }
 Write-Host "  started   $stamp"
 
 $arguments = @('-m', 'fluxkrea.cli', 'serve')
