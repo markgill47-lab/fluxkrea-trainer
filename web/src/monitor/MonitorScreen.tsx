@@ -20,6 +20,8 @@ import { StatTiles } from "./StatTiles";
 
 interface Props {
   onError(message: string | null): void;
+  /** Open on this job rather than the newest. Set after submitting one. */
+  initialJob?: string | null;
 }
 
 /** Lines kept in the browser. The daemon keeps the durable record. */
@@ -28,9 +30,9 @@ const MAX_LINES = 20_000;
 /** How often to re-pull the derived series while a run is live. */
 const LOSS_INTERVAL = 4000;
 
-export function MonitorScreen({ onError }: Props) {
+export function MonitorScreen({ onError, initialJob = null }: Props) {
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(initialJob);
   const [job, setJob] = useState<Job | null>(null);
   const [loss, setLoss] = useState<LossPayload | null>(null);
   const [samples, setSamples] = useState<SampleImage[]>([]);
@@ -52,14 +54,14 @@ export function MonitorScreen({ onError }: Props) {
     try {
       const payload = await api.jobs();
       setJobs(payload.jobs);
-      setJobId((current) => current ?? payload.jobs[0]?.id ?? null);
+      setJobId((current) => current ?? initialJob ?? payload.jobs[0]?.id ?? null);
       onError(null);
     } catch (error) {
       if (!isAbort(error)) onError(error instanceof ApiError ? error.message : String(error));
     } finally {
       setLoading(false);
     }
-  }, [onError]);
+  }, [onError, initialJob]);
 
   useEffect(() => {
     void reloadJobs();

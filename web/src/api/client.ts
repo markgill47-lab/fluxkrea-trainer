@@ -13,6 +13,7 @@
 
 import type {
   BoxesResponse,
+  BrowseResponse,
   CaptionerInfo,
   CaptionerProbe,
   ConfigPayload,
@@ -24,6 +25,7 @@ import type {
   ModelInfo,
   NodeInfo,
   ReviewProgress,
+  RunPlan,
   SampleImage,
   SavedPrompt,
   SecretInfo,
@@ -138,6 +140,21 @@ export const api = {
   registerDataset: (path: string, name?: string, o?: RequestOptions) =>
     request<Dataset>("POST", "/datasets", { path, name }, o),
 
+  /** Forget a dataset. The folder and its files are left alone. */
+  forgetDataset: (dataset: string, o?: RequestOptions) =>
+    request<{ id: string; forgotten: boolean }>("DELETE", `/datasets/${dataset}`, undefined, o),
+
+  /**
+   * Folders under the configured roots, with image counts. The client has
+   * no native file dialog, so paths come from the API - which is also what
+   * keeps this from being a file browser for the whole machine.
+   */
+  browse: (path?: string, o?: RequestOptions) =>
+    request<BrowseResponse>("GET", "/fs/browse", undefined, {
+      ...o,
+      params: { path },
+    }),
+
   items: (dataset: string, o?: RequestOptions) =>
     request<ItemsResponse>("GET", `/datasets/${dataset}/items`, undefined, o),
 
@@ -216,6 +233,18 @@ export const api = {
       undefined,
       o,
     ),
+
+  /** Steps and duration for a run that has not been submitted yet. */
+  planRun: (
+    dataset: string,
+    repeats: number,
+    epochs: number,
+    model: string,
+    o?: RequestOptions,
+  ) => request<RunPlan>("POST", "/jobs/plan", { dataset, repeats, epochs, model }, o),
+
+  submitJob: (spec: Record<string, unknown>, o?: RequestOptions) =>
+    request<Job & { warning?: string }>("POST", "/jobs", spec, o),
 
   job: (id: string, o?: RequestOptions) => request<Job>("GET", `/jobs/${id}`, undefined, o),
 

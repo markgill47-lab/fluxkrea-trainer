@@ -20,6 +20,7 @@ from fastapi import APIRouter, Body, Depends, Header, Query
 from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
+from ...core.backends.plan import plan, rate_from_history
 from ..queue import QUEUED, RunSpec
 from ..security import Denied
 from ..state import State
@@ -40,6 +41,37 @@ def list_jobs(
         "devices": state.jobs.devices,
         "runner": state.jobs.runner is not None,
     }
+
+
+@router.post("/plan")
+def plan_run(
+    payload: dict[str, Any] = Body(default={}),
+    state: State = Depends(get_state),
+) -> dict[str, Any]:
+    """How many steps a run would be, and how long it would take.
+
+    v1's "Training steps are calculated automatically" box, as an endpoint,
+    so the CLI and the browser agree on the arithmetic and on where the
+    time estimate came from. Counting the images is the expensive half, and
+    it is also the half that goes stale - which is why this is a call
+    rather than a number the client caches.
+    """
+    dataset_id = str(payload.get("dataset") or "").strip()
+    if not dataset_id:
+        raise Denied("a plan needs a dataset", status=400)
+
+    images = len(state.items(dataset_id))
+    history = [job.as_dict() for job in state.jobs.list()]
+    rate, basis = rate_from_history(history, str(payload.get("model") or ""))
+
+    computed = plan(
+        images,
+        repeats=int(payload.get("repeats") or 1),
+        epochs=int(payload.get("epochs") or 1),
+        seconds_per_step=rate,
+        basis=basis,
+    )
+    return {"dataset": dataset_id, **computed.as_dict()}
 
 
 @router.post("", status_code=202)

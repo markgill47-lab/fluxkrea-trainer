@@ -320,3 +320,56 @@ def test_an_unknown_prompt_name_does_not_fail_the_request(
         prompt_name="typo",
     )
     assert final["status"] == "failed"  # the backend, not the prompt
+
+
+# --------------------------------------------------------------------------
+# run planning
+# --------------------------------------------------------------------------
+
+
+def test_a_plan_counts_the_dataset_and_derives_the_steps(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    """v1's "training steps are calculated automatically" box."""
+    from PIL import Image
+
+    from tests.daemon.conftest import register
+
+    root = tmp_path / "poses"
+    root.mkdir()
+    for index in range(4):
+        Image.new("RGB", (64, 64)).save(root / f"p{index}.png")
+    dataset_id = register(api, root)
+
+    body = api.post(
+        "/jobs/plan", json={"dataset": dataset_id, "repeats": 10, "epochs": 6}
+    ).json()
+    assert body["images"] == 4
+    assert body["steps"] == 240
+
+
+def test_a_plan_without_history_declines_to_estimate(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    """Better an honest blank than a number someone plans an evening around."""
+    from PIL import Image
+
+    from tests.daemon.conftest import register
+
+    root = tmp_path / "poses"
+    root.mkdir()
+    Image.new("RGB", (64, 64)).save(root / "p.png")
+    dataset_id = register(api, root)
+
+    body = api.post("/jobs/plan", json={"dataset": dataset_id}).json()
+    assert body["seconds"] is None
+    assert body["duration"] == ""
+    assert "no finished runs" in body["basis"]
+
+
+def test_a_plan_needs_a_dataset(api: httpx.Client) -> None:
+    assert api.post("/jobs/plan", json={}).status_code == 400
+
+
+def test_a_plan_for_an_unknown_dataset_is_a_404(api: httpx.Client) -> None:
+    assert api.post("/jobs/plan", json={"dataset": "nope"}).status_code == 404

@@ -316,3 +316,38 @@ export interface SavedPrompt {
   /** A saved prompt standing over a built-in of the same name. */
   shadows_builtin: boolean;
 }
+
+// --------------------------------------------------------------------------
+// dataset registration and run planning
+// --------------------------------------------------------------------------
+
+export interface FolderEntry {
+  path: string;
+  name: string;
+  images: number;
+  has_masks: boolean;
+  /** Set when this folder is already registered. */
+  dataset_id: string | null;
+}
+
+export interface BrowseResponse {
+  path: string | null;
+  parent: string | null;
+  roots: string[];
+  entries: FolderEntry[];
+}
+
+/** What a run would be, before it is submitted. */
+export interface RunPlan {
+  dataset: string;
+  images: number;
+  repeats: number;
+  epochs: number;
+  steps: number;
+  seconds_per_step: number | null;
+  seconds: number | null;
+  /** "9h 30m", or empty when this node has no history to measure against. */
+  duration: string;
+  /** Where the rate came from, so an extrapolation is not read as a promise. */
+  basis: string;
+}

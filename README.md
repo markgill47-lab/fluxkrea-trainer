@@ -7,7 +7,7 @@ targeting FLUX.2 Klein and Krea 2 across a distributed lab fleet.
 and its API, `fk` as a real API client, the ai-toolkit backend —
 **FLUX.2, both Klein sizes and Krea 2 train through one config-driven
 class** — and the browser client the daemon serves: dataset gallery, mask
-review, training monitor, settings. The standalone Klein trainer does not
+review, training configuration and monitor, settings. The standalone Klein trainer does not
 exist yet. v1 stays the working tool until v2 can genuinely replace it.
 
 ## Why rewrite

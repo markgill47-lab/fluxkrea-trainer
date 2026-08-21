@@ -20,6 +20,7 @@ one. What exists:
 | `core/dataset/ops/` | `resize`, `rename` (plan/execute, rollback), `augment`, `mask`, `caption` |
 | `core/captioners/` | `Captioner` interface; JoyCaption in-process, Ollama, Claude, behind a registry |
 | `core/captioners/prompts.py` | Saved caption prompts, five shipped, built-ins shadowed not destroyed |
+| `core/backends/plan.py` | `images x repeats x epochs`, and a duration measured from this node's own runs |
 | `core/analytics/loss.py` | EMA, trend, outliers, LTTB decimation - above the backend line |
 | `core/detect/` | `Detector` protocol, YuNet, null detector, registry |
 | `core/dataset/manifest.py` | Per-file size, mtime, digest; the diff sync rests on |
@@ -182,6 +183,16 @@ Places where the spec left room and the code had to pick:
   string.** The name test alone is a substring match, and `max_tokens`
   contains "token". A number named after a secret is a count; refusing to
   load a config over one would be a bug wearing a security hat.
+- **A duration estimate is measured or absent.** A seconds-per-step
+  constant is wrong on every card it was not measured on, and wrong
+  differently at each resolution and rank. `plan.py` takes the rate from
+  runs that already finished on this node, reports which runs it used, and
+  shows nothing at all when there are none - because somebody plans an
+  evening around that number. Runs under 50 steps are ignored: they
+  describe model load and caching, not the per-step rate.
+- **Training settings lock while a run is going, rather than hiding.** The
+  settings a run is using are worth reading while it runs. A field that
+  accepts an edit which changes nothing is the thing to avoid.
 - **JoyCaption is a HuggingFace model, not an Ollama one.** It never
   appears in `ollama list` and the weights live in `~/.cache/huggingface`.
   Confusing the two costs an afternoon looking for a 16GB model that is

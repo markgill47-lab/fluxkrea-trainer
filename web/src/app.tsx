@@ -11,9 +11,10 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { api, ApiError, isAbort } from "~/api/client";
 import type { Dataset, Health, NodeInfo } from "~/api/types";
+import { DatasetPicker } from "~/datasets/DatasetPicker";
 import { GalleryScreen } from "~/gallery/GalleryScreen";
-import { MonitorScreen } from "~/monitor/MonitorScreen";
 import { ReviewScreen } from "~/review/ReviewScreen";
+import { TrainScreen } from "~/train/TrainScreen";
 import { SettingsScreen } from "~/settings/SettingsScreen";
 
 /**
@@ -43,6 +44,7 @@ export function App() {
   const [dataset, setDataset] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);
+  const [picking, setPicking] = useState(false);
 
   const poll = useCallback(async () => {
     try {
@@ -59,20 +61,35 @@ export function App() {
     return () => clearInterval(timer);
   }, [poll]);
 
+  const reloadDatasets = useCallback(async () => {
+    try {
+      const listing = await api.datasets();
+      setDatasets(listing.datasets);
+      // Keep the selection if it survived; otherwise fall to the first one.
+      setDataset((existing) =>
+        existing && listing.datasets.some((entry) => entry.id === existing)
+          ? existing
+          : (listing.datasets[0]?.id ?? null),
+      );
+    } catch (caught) {
+      if (!isAbort(caught)) {
+        setError(caught instanceof ApiError ? caught.message : String(caught));
+      }
+    }
+  }, []);
+
   useEffect(() => {
     (async () => {
       try {
-        const [info, listing] = await Promise.all([api.node(), api.datasets()]);
-        setNode(info);
-        setDatasets(listing.datasets);
-        setDataset((existing) => existing ?? listing.datasets[0]?.id ?? null);
+        setNode(await api.node());
       } catch (caught) {
         if (!isAbort(caught)) {
           setError(caught instanceof ApiError ? caught.message : String(caught));
         }
       }
     })();
-  }, []);
+    void reloadDatasets();
+  }, [reloadDatasets]);
 
   const detectors = node
     ? Object.entries(node.detectors)
@@ -103,6 +120,14 @@ export function App() {
             ))}
           </select>
         )}
+
+        <button
+          class="btn btn--ghost"
+          onClick={() => setPicking(true)}
+          title="Add or remove dataset folders"
+        >
+          Datasets…
+        </button>
 
         <span class="topbar__spacer" />
 
@@ -142,30 +167,44 @@ export function App() {
               onOpenReview={() => setScreen("review")}
             />
           ) : (
-            <NoDataset />
+            <NoDataset onAdd={() => setPicking(true)} />
           ))}
 
         {screen === "review" &&
           (dataset ? (
             <ReviewScreen dataset={dataset} detectors={detectors} onError={setError} />
           ) : (
-            <NoDataset />
+            <NoDataset onAdd={() => setPicking(true)} />
           ))}
 
-        {screen === "training" && <MonitorScreen onError={setError} />}
+        {screen === "training" && <TrainScreen datasets={datasets} onError={setError} />}
 
         {screen === "settings" && <SettingsScreen onError={setError} />}
       </main>
+
+      {picking && (
+        <DatasetPicker
+          datasets={datasets}
+          onClose={() => setPicking(false)}
+          onChanged={() => void reloadDatasets()}
+        />
+      )}
     </div>
   );
 }
 
-function NoDataset() {
+function NoDataset({ onAdd }: { onAdd(): void }) {
   return (
     <div class="empty">
       <div class="empty__title">No dataset registered</div>
+      <div>Point this node at a folder of images to get started.</div>
       <div>
-        Register one with <code class="mono">fk dataset register &lt;path&gt;</code>
+        <button class="btn btn--accent" onClick={onAdd}>
+          Add a dataset
+        </button>
+      </div>
+      <div style={{ color: "var(--text-tertiary)" }}>
+        or <code class="mono">fk dataset register &lt;path&gt;</code>
       </div>
     </div>
   );
