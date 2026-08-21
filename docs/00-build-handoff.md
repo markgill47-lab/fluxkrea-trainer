@@ -196,11 +196,26 @@ cannot read off the tree:
 | Output | `Output/` in the project folder — three runs in it, `femj-flux2` being the full-length one |
 | Datasets | Rooted at `D:\Projects_26\LoRA_Training_data` |
 
-`fk config show` reporting `source: None` means no config file was found,
-which surfaces as "no datasets registered" and sends you looking in the
-wrong place entirely. It happens when the daemon is launched through a
-chain of shells that loses the environment; started from a normal
-PowerShell with `serve.ps1` it resolves every time.
+**A daemon that loaded no config is the failure to check first.** It
+surfaces as "no datasets registered", or later and worse as
+"backends.aitoolkit_path is not set" on a node whose `config.toml` has it
+set correctly. It has happened twice, the second time from a `serve.ps1`
+start in an ordinary PowerShell, and I could not reconstruct the cause
+either time - nothing recorded what the daemon had loaded, and a daemon
+started the same way finds the file every time it is tried.
+
+So the daemon now says which config it loaded, before uvicorn prints
+anything, and `logs/daemon.log` keeps it:
+
+```
+serving on http://127.0.0.1:8471
+config    C:\Users\karni\AppData\Roaming\FluxKrea\config.toml
+```
+
+`config    none found - looked in ...` is the bad case. If you see it,
+that is the whole problem and the file on disk is a red herring - capture
+the environment of that process before killing it, because that is the
+piece still missing.
 
 Two loose ends, so they do not read as bugs:
 
