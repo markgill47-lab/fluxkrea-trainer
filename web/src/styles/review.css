@@ -496,7 +496,7 @@ kbd {
   border-bottom-width: 2px;
   border-radius: 3px;
   color: var(--text-primary);
-  font-family: var(--font-mono, "JetBrains Mono"), Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   text-align: center;
 }

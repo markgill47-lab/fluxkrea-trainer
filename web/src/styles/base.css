@@ -4,10 +4,7 @@
  * properties so the theme is inspectable and swappable without a rebuild,
  * and there is no runtime CSS-in-JS anywhere.
  *
- * FONTS: doc 07 wants Inter and JetBrains Mono self-hosted — lab nodes may
- * be offline and the daemon is the only thing serving assets. The woff2
- * files are not vendored yet, so the fallback stacks below are what render
- * today. Drop them in web/public/fonts/ and add @font-face to close this.
+ * Fonts are self-hosted and declared in fonts.css, imported before this.
  */
 
 *,
@@ -26,7 +23,9 @@ body,
 body {
   background: var(--bg-app);
   color: var(--text-primary);
-  font-family: var(--font-ui, Inter), "Segoe UI", system-ui, -apple-system, sans-serif;
+  /* The token already carries its own fallback stack; appending another
+   * here just duplicates it in the computed value. */
+  font-family: var(--font-ui);
   font-size: 13px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
@@ -40,7 +39,7 @@ body {
 }
 
 .mono {
-  font-family: var(--font-mono, "JetBrains Mono"), Consolas, "Cascadia Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 button {

@@ -210,3 +210,50 @@ def test_the_client_is_served_and_the_api_still_wins(
             assert client.get(f"{API}/nope").status_code == 404
     finally:
         state.shutdown()
+
+
+# --------------------------------------------------------------------------
+# payload budget
+# --------------------------------------------------------------------------
+
+#: Doc 10: "Client bundle (JS+CSS+fonts+icons) < 500KB compressed."
+BUDGET = 500_000
+
+DIST = Path(__file__).resolve().parents[2] / "web" / "dist"
+
+needs_build = pytest.mark.skipif(
+    not (DIST / "index.html").is_file(),
+    reason="no client build; run `npm run build` in web/",
+)
+
+
+@needs_build
+def test_the_client_stays_inside_its_payload_budget() -> None:
+    """Everything here is loaded over an SSH tunnel, sometimes from a hotel.
+
+    Counts what a first paint actually costs: the shell, the JS and CSS
+    gzipped as a server would send them, and the woff2 files a Latin UI
+    pulls. woff2 is already compressed, so it is counted raw.
+    """
+    import gzip
+
+    total = 0
+    detail: dict[str, int] = {}
+    for path in sorted(DIST.rglob("*")):
+        if not path.is_file():
+            continue
+        name = path.name
+        if name.endswith(".woff2"):
+            # latin-ext is only fetched when a glyph needs it, so it is not
+            # part of a normal first load.
+            if "-ext-" in name:
+                continue
+            size = path.stat().st_size
+        elif name.endswith((".js", ".css", ".html")):
+            size = len(gzip.compress(path.read_bytes(), 9))
+        else:
+            continue
+        detail[name] = size
+        total += size
+
+    assert total < BUDGET, f"client payload {total} exceeds {BUDGET}: {detail}"

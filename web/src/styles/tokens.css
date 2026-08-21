@@ -2,16 +2,9 @@
  * Extracted verbatim from design/FluxKrea Design Catalog.dc.html.
  * Source of truth for values: docs/07-visual-language.md.
  *
- * FONTS: the catalog HTML loads Inter and JetBrains Mono from the Google
- * Fonts CDN. That is fine for viewing the catalog in a browser, but the
- * client must self-host — lab nodes may be offline and the daemon is the
- * only thing serving assets. Drop the woff2 files in web/fonts/ and
- * declare them here before this file is used in the client:
- *
- *   @font-face { font-family: Inter; src: url(fonts/Inter.var.woff2) format("woff2");
- *                font-weight: 400 600; font-display: swap; }
- *   @font-face { font-family: "JetBrains Mono"; src: url(fonts/JetBrainsMono.var.woff2) format("woff2");
- *                font-weight: 400 700; font-display: swap; }
+ * FONTS: self-hosted in fonts.css, which is imported before this file.
+ * Inter and JetBrains Mono, variable weight axis, latin + latin-ext.
+ * The fallback stacks below are declared but should not be reached.
  */
 
 :root {

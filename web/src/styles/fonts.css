@@ -1,0 +1,69 @@
+/* Self-hosted fonts — doc 07.
+ *
+ * "Everything self-hosted. Fonts, icons, styles, scripts. The daemon serves
+ * the client; there is no network beyond it." Lab nodes may be air-gapped,
+ * and font loading over an SSH tunnel should not be a thing that can fail.
+ * The fallback stacks in tokens.css are declared but should never be
+ * reached.
+ *
+ * Variable weight axis only, upright only — the UI uses neither italics nor
+ * the optical-size axis, and every axis shipped is bytes over a tunnel.
+ *
+ * Latin and latin-ext are both declared with their `unicode-range`, so the
+ * extended file is only fetched when a caption or a path actually contains
+ * an accented character. Typical use downloads latin alone: 48KB for Inter,
+ * 40KB for JetBrains Mono.
+ *
+ * Both are SIL Open Font License 1.1; the licences sit beside the files.
+ *
+ * The woff2 files live under src/ rather than public/ so the bundler
+ * fingerprints them: the filename then changes whenever the bytes do, they
+ * inherit the immutable cache headers the daemon already sets on /assets,
+ * and swapping a font can never serve a stale one from a browser cache.
+ *
+ * JetBrains Mono is chosen over the usual candidates for disambiguation —
+ * 0/O, 1/l/I and 5/S are visually distinct, which matters when the text is
+ * a checkpoint hash or a Linux path being compared by eye (doc 07).
+ */
+
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/inter-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./fonts/inter-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("./fonts/jetbrains-mono-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 800;
+  src: url("./fonts/jetbrains-mono-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308,
+    U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
