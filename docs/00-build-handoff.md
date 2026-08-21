@@ -196,26 +196,35 @@ cannot read off the tree:
 | Output | `Output/` in the project folder — three runs in it, `femj-flux2` being the full-length one |
 | Datasets | Rooted at `D:\Projects_26\LoRA_Training_data` |
 
-**A daemon that loaded no config is the failure to check first.** It
-surfaces as "no datasets registered", or later and worse as
-"backends.aitoolkit_path is not set" on a node whose `config.toml` has it
-set correctly. It has happened twice, the second time from a `serve.ps1`
-start in an ordinary PowerShell, and I could not reconstruct the cause
-either time - nothing recorded what the daemon had loaded, and a daemon
-started the same way finds the file every time it is tried.
+**Start the daemon from a shell outside the Claude desktop app.** This is
+the single most expensive thing in this file. A terminal inside a Windows
+MSIX package gives every process it launches a *private* view of
+`%APPDATA%` and `%LOCALAPPDATA%` - identical path strings, different files,
+and no signal of any kind from inside the container. A daemon started that
+way reads a `config.toml` that is not the one you edit, writes settings
+that never appear on disk, and keeps its job queue somewhere nothing else
+can see.
 
-So the daemon now says which config it loaded, before uvicorn prints
-anything, and `logs/daemon.log` keeps it:
+It presents as things that cannot be true: "no datasets registered" on a
+node with roots configured; `backends.aitoolkit_path is not set` two lines
+after the daemon named the file that sets it; a job that ran and failed and
+is not in the queue. Every observation is correct and the conclusion is
+impossible, because two files answer to one path.
+
+`fk serve` now says so at startup - the package name, that the paths are
+virtualised, and what to do about it. The first four lines are worth
+reading every time:
 
 ```
 serving on http://127.0.0.1:8471
 config    C:\Users\karni\AppData\Roaming\FluxKrea\config.toml
+package   D:\Projects_26\FluxKrea_Trainer26\src\fluxkrea
+backend   aitoolkit: D:/Projects_26/AI_Image_Trainer/ai-toolkit-krea2
 ```
 
-`config    none found - looked in ...` is the bad case. If you see it,
-that is the whole problem and the file on disk is a red herring - capture
-the environment of that process before killing it, because that is the
-piece still missing.
+`config    none found`, `backend   aitoolkit: not configured`, or any
+`env       FLUXKREA_*` line you did not set is the daemon telling you it is
+not running what you think it is.
 
 Two loose ends, so they do not read as bugs:
 

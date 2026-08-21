@@ -51,6 +51,12 @@ at a real ai-toolkit checkout; use `ai-toolkit-krea2`, not the rotted
 - **Do not tie the daemon's lifetime to your session.** Training runs take
   hours. Tell the user to run `.\serve.ps1` in their own terminal rather
   than starting it from a tool call.
+- **That terminal must be outside the Claude desktop app.** A shell inside
+  a Windows MSIX package hands every child a private `%APPDATA%` and
+  `%LOCALAPPDATA%`: same path strings, different files, invisible from
+  within. The daemon then reads a config nobody edits and writes one nobody
+  reads. `fk serve` prints a warning when it detects this - believe it, and
+  check the first four startup lines before believing anything else.
 
 ## Environment
 
