@@ -25,14 +25,17 @@ import type {
   CaptionerInfo,
   CaptionerProbe,
   ConfigPayload,
+  SavedPrompt,
   SecretInfo,
 } from "~/api/types";
 import { Field } from "./Field";
+import { PromptField } from "./PromptField";
 
 export function SettingsScreen({ onError }: { onError(message: string | null): void }) {
   const [config, setConfig] = useState<ConfigPayload | null>(null);
   const [captioners, setCaptioners] = useState<CaptionerInfo[]>([]);
   const [secrets, setSecrets] = useState<SecretInfo[]>([]);
+  const [prompts, setPrompts] = useState<SavedPrompt[]>([]);
   const [probe, setProbe] = useState<CaptionerProbe | null>(null);
   const [probing, setProbing] = useState(false);
 
@@ -46,14 +49,16 @@ export function SettingsScreen({ onError }: { onError(message: string | null): v
   useEffect(() => {
     (async () => {
       try {
-        const [loaded, backends, keys] = await Promise.all([
+        const [loaded, backends, keys, saved] = await Promise.all([
           api.config(),
           api.captioners(),
           api.secrets(),
+          api.prompts(),
         ]);
         setConfig(loaded);
         setCaptioners(backends.captioners);
         setSecrets(keys.secrets);
+        setPrompts(saved.prompts);
       } catch (error) {
         fail(error);
       }
@@ -76,6 +81,31 @@ export function SettingsScreen({ onError }: { onError(message: string | null): v
     },
     [],
   );
+
+  const savePrompt = useCallback(
+    async (name: string, text: string): Promise<string | null> => {
+      try {
+        await api.savePrompt(name, text);
+        setPrompts((await api.prompts()).prompts);
+        return null;
+      } catch (error) {
+        if (isAbort(error)) return null;
+        return error instanceof ApiError ? error.message : String(error);
+      }
+    },
+    [],
+  );
+
+  const deletePrompt = useCallback(async (name: string): Promise<string | null> => {
+    try {
+      await api.deletePrompt(name);
+      setPrompts((await api.prompts()).prompts);
+      return null;
+    } catch (error) {
+      if (isAbort(error)) return null;
+      return error instanceof ApiError ? error.message : String(error);
+    }
+  }, []);
 
   const test = useCallback(async () => {
     setProbing(true);
@@ -221,13 +251,13 @@ export function SettingsScreen({ onError }: { onError(message: string | null): v
             placeholder="none"
             onSave={(value) => save("captioner.prefix", value)}
           />
-          <Field
-            label="Prompt"
-            hint="what the model is asked. Empty uses the built-in caption prompt."
+          <PromptField
             value={captioner.prompt}
-            multiline
-            placeholder="(the built-in prompt)"
-            onSave={(value) => save("captioner.prompt", value)}
+            prompts={prompts}
+            onChange={(text) => save("captioner.prompt", text)}
+            onSave={savePrompt}
+            onDelete={deletePrompt}
+            onError={onError}
           />
           <Field
             label="Max tokens"

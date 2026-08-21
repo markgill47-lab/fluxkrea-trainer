@@ -25,6 +25,7 @@ import type {
   NodeInfo,
   ReviewProgress,
   SampleImage,
+  SavedPrompt,
   SecretInfo,
   Task,
   ValidationReport,
@@ -265,6 +266,31 @@ export const api = {
    */
   testCaptioner: (options: Record<string, unknown> = {}, o?: RequestOptions) =>
     request<CaptionerProbe>("POST", "/captioners/test", options, o),
+
+  /** Saved caption prompts, built-ins included. */
+  prompts: (o?: RequestOptions) =>
+    request<{ prompts: SavedPrompt[]; file: string }>(
+      "GET",
+      "/captioners/prompts",
+      undefined,
+      o,
+    ),
+
+  savePrompt: (name: string, text: string, o?: RequestOptions) =>
+    request<SavedPrompt>(
+      "PUT",
+      `/captioners/prompts/${encodeURIComponent(name)}`,
+      { text },
+      o,
+    ),
+
+  deletePrompt: (name: string, o?: RequestOptions) =>
+    request<{ name: string; deleted: boolean; restored: boolean }>(
+      "DELETE",
+      `/captioners/prompts/${encodeURIComponent(name)}`,
+      undefined,
+      o,
+    ),
 
   cancelTask: (id: string, o?: RequestOptions) =>
     request<{ id: string; cancelling: boolean }>("DELETE", `/tasks/${id}`, undefined, o),

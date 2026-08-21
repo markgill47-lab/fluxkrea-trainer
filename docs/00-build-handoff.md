@@ -18,7 +18,8 @@ one. What exists:
 | `core/imaging.py` | EXIF, handle release, JPEG settings, the NEAREST mask rule |
 | `core/dataset/` | `DatasetItem`, one scanner, metadata cache, `validate` |
 | `core/dataset/ops/` | `resize`, `rename` (plan/execute, rollback), `augment`, `mask`, `caption` |
-| `core/captioners/` | `Captioner` interface, Ollama (local, default) and Claude, behind a registry |
+| `core/captioners/` | `Captioner` interface; JoyCaption in-process, Ollama, Claude, behind a registry |
+| `core/captioners/prompts.py` | Saved caption prompts, five shipped, built-ins shadowed not destroyed |
 | `core/analytics/loss.py` | EMA, trend, outliers, LTTB decimation - above the backend line |
 | `core/detect/` | `Detector` protocol, YuNet, null detector, registry |
 | `core/dataset/manifest.py` | Per-file size, mtime, digest; the diff sync rests on |
@@ -181,6 +182,23 @@ Places where the spec left room and the code had to pick:
   string.** The name test alone is a substring match, and `max_tokens`
   contains "token". A number named after a secret is a count; refusing to
   load a config over one would be a bug wearing a security hat.
+- **JoyCaption is a HuggingFace model, not an Ollama one.** It never
+  appears in `ollama list` and the weights live in `~/.cache/huggingface`.
+  Confusing the two costs an afternoon looking for a 16GB model that is
+  sitting right there; the module docstring says so.
+- **A readiness probe checks the config and the weights, not the whole
+  repo.** `snapshot_download(local_files_only=True)` reports a working
+  model as "not cached, will download 16GB" when `.gitattributes` and the
+  licence are missing. It said exactly that about a model that had
+  captioned an image minutes earlier.
+- **A prompt that lists what to cover must also say how to write.** Asked
+  to cover "pose, expression, framing, clothing", JoyCaption sometimes
+  reads the list as a form and answers `**Pose:** Standing.` Two captions
+  in forty-two on the Mara set. The shipped prompts now demand prose, and
+  `_clean` strips markdown emphasis regardless — a LoRA trained on
+  asterisks learns asterisks.
+- **The captioner is closed when a batch ends.** JoyCaption holds 9-17GB
+  on the same card that runs training.
 - **The captioner is probed once per batch, before the loop.** A stopped
   Ollama daemon is one message, not two hundred. Five failures in a row
   abort the run, because past a handful it is the backend that is broken

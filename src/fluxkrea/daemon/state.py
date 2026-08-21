@@ -15,6 +15,7 @@ from typing import Any
 
 from .. import __version__
 from ..core import paths
+from ..core.captioners.prompts import PromptLibrary
 from ..core.config import Config, load
 from ..core.dataset import scan
 from ..core.dataset.item import DatasetItem
@@ -27,6 +28,8 @@ from .tasks import TaskRunner
 @dataclass
 class State:
     config: Config = field(default_factory=load)
+    #: Saved caption prompts. One per node, beside the config file.
+    prompts: PromptLibrary = field(default_factory=PromptLibrary)
     registry: Registry = field(default_factory=Registry)
     tasks: TaskRunner = field(default=None)  # type: ignore[assignment]
     jobs: JobQueue = field(default=None)  # type: ignore[assignment]

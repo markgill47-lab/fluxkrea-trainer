@@ -213,3 +213,110 @@ def test_a_caption_op_with_a_dead_backend_fails_the_task_not_the_request(
 def test_config_defaults_keep_captioning_local(api: httpx.Client) -> None:
     """Nothing leaves the node unless someone changes this on purpose."""
     assert Config().captioner.provider == "ollama"
+
+
+# --------------------------------------------------------------------------
+# saved prompts
+# --------------------------------------------------------------------------
+
+
+def test_the_builtin_prompts_are_served(api: httpx.Client) -> None:
+    body = api.get("/captioners/prompts").json()
+    names = {prompt["name"] for prompt in body["prompts"]}
+    assert {"default", "person", "terse"} <= names
+    assert all(prompt["builtin"] for prompt in body["prompts"])
+    assert body["file"].endswith("prompts.json")
+
+
+def test_a_prompt_can_be_saved_and_comes_back(api: httpx.Client) -> None:
+    saved = api.put("/captioners/prompts/mara", json={"text": "Describe her jacket."})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["name"] == "mara"
+
+    listed = api.get("/captioners/prompts").json()["prompts"]
+    mine = next(prompt for prompt in listed if prompt["name"] == "mara")
+    assert mine["text"] == "Describe her jacket."
+    assert mine["builtin"] is False
+
+
+def test_an_empty_prompt_is_refused(api: httpx.Client) -> None:
+    assert api.put("/captioners/prompts/blank", json={"text": "  "}).status_code == 422
+
+
+def test_saving_over_a_builtin_shadows_rather_than_replaces(api: httpx.Client) -> None:
+    api.put("/captioners/prompts/person", json={"text": "mine"})
+    listed = api.get("/captioners/prompts").json()["prompts"]
+    person = next(prompt for prompt in listed if prompt["name"] == "person")
+    assert person["text"] == "mine"
+    assert person["shadows_builtin"] is True
+
+    # And deleting it brings the original back rather than losing it.
+    removed = api.delete("/captioners/prompts/person").json()
+    assert removed["restored"] is True
+    listed = api.get("/captioners/prompts").json()["prompts"]
+    person = next(prompt for prompt in listed if prompt["name"] == "person")
+    assert person["builtin"] is True
+    assert person["text"] != "mine"
+
+
+def test_a_builtin_cannot_be_deleted(api: httpx.Client) -> None:
+    response = api.delete("/captioners/prompts/person")
+    assert response.status_code == 404
+    assert "cannot be deleted" in response.json()["error"]
+
+
+def test_deleting_an_unknown_prompt_is_a_404(api: httpx.Client) -> None:
+    assert api.delete("/captioners/prompts/never-existed").status_code == 404
+
+
+def test_a_caption_run_can_name_a_saved_prompt(api: httpx.Client, tmp_path: Path) -> None:
+    """The whole point: last week's prompt, by name, from any client."""
+    from PIL import Image
+
+    from tests.daemon.conftest import register, run_op
+
+    api.put("/captioners/prompts/mine", json={"text": "Describe the lighting only."})
+
+    root = tmp_path / "set"
+    root.mkdir()
+    Image.new("RGB", (64, 64)).save(root / "a.png")
+    dataset_id = register(api, root)
+
+    # The backend is unreachable, so the run fails - but it fails *after*
+    # the prompt name resolved, which is what a 422 here would have caught.
+    final = run_op(
+        api,
+        dataset_id,
+        "caption",
+        provider="ollama",
+        url="http://127.0.0.1:1",
+        timeout=1,
+        prompt_name="mine",
+    )
+    assert final["result"]["ok"] is False
+    assert "ollama serve" in final["result"]["aborted"]
+
+
+def test_an_unknown_prompt_name_does_not_fail_the_request(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    """A typo falls back to the default prompt rather than to nothing."""
+    from PIL import Image
+
+    from tests.daemon.conftest import register, run_op
+
+    root = tmp_path / "set"
+    root.mkdir()
+    Image.new("RGB", (64, 64)).save(root / "a.png")
+    dataset_id = register(api, root)
+
+    final = run_op(
+        api,
+        dataset_id,
+        "caption",
+        provider="ollama",
+        url="http://127.0.0.1:1",
+        timeout=1,
+        prompt_name="typo",
+    )
+    assert final["status"] == "failed"  # the backend, not the prompt

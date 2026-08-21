@@ -328,9 +328,32 @@ def test_cleaning_capitalises_what_it_uncovers() -> None:
     assert _clean("This image shows a woman standing").startswith("A woman")
 
 
-def test_a_prefix_ending_in_punctuation_is_not_given_a_comma() -> None:
-    assert _clean("a woman", prefix="mara,") == "mara, a woman"
+def test_markdown_emphasis_is_stripped() -> None:
+    """A LoRA trained on asterisks learns asterisks."""
+    assert _clean("**Pose:** Standing. **Expression:** Neutral.") == (
+        "Pose: Standing. Expression: Neutral."
+    )
+    assert _clean("a woman in a __red__ coat") == "a woman in a red coat"
+
+
+def test_the_prefix_keeps_its_own_markdown() -> None:
+    """Cleaning is for the model's answer; the prefix is the operator's."""
+    assert _clean("a woman", prefix="**Mara**:") == "**Mara**: a woman"
+
+
+def test_every_shipped_prompt_that_lists_fields_asks_for_prose() -> None:
+    """Two captions in forty-two came back as forms. This is why."""
+    from fluxkrea.core.captioners.prompts import BUILTIN, PROSE
+
+    for name in ("person", "clothing", "style"):
+        assert PROSE in BUILTIN[name], f"{name} lists what to cover but not how"
+
+
+def test_a_prefix_keeps_the_separator_it_was_written_with() -> None:
+    """Both conventions are deliberate; only the missing space is a typo."""
     assert _clean("a woman", prefix="mara") == "mara, a woman"
+    assert _clean("a woman", prefix="mara,") == "mara, a woman"
+    assert _clean("a woman", prefix="**Mara**:") == "**Mara**: a woman"
 
 
 def test_a_prefix_survives_an_empty_caption() -> None:

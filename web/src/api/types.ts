@@ -307,3 +307,12 @@ export interface SecretInfo {
   found: boolean;
   env: string[];
 }
+
+export interface SavedPrompt {
+  name: string;
+  text: string;
+  /** Shipped with the app; cannot be deleted, only saved over. */
+  builtin: boolean;
+  /** A saved prompt standing over a built-in of the same name. */
+  shadows_builtin: boolean;
+}

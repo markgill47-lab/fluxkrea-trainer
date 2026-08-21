@@ -208,3 +208,42 @@
     grid-column: 1;
   }
 }
+
+/* -- the prompt row ------------------------------------------------------- */
+
+/* The prompt is the one setting people actually work on, so it gets a full
+ * row rather than a control squeezed into the value column. */
+.field--prompt {
+  grid-template-columns: 150px minmax(0, 1fr);
+}
+
+.field__prompt-text {
+  grid-column: 2;
+  width: 100%;
+  font-size: 12px;
+}
+
+.prompt-actions {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+}
+
+.prompt-actions .field__input {
+  flex: 0 1 220px;
+  height: 28px;
+}
+
+@media (max-width: 620px) {
+  .field--prompt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .field__prompt-text,
+  .prompt-actions {
+    grid-column: 1;
+  }
+}

@@ -169,7 +169,7 @@ class JoyCaptionCaptioner(Captioner):
             return True, f"JoyCaption loaded: {self.model_id}"
 
         try:
-            from huggingface_hub import snapshot_download
+            from huggingface_hub import try_to_load_from_cache
         except ImportError:
             return False, (
                 "JoyCaption needs torch, transformers and huggingface_hub: "
@@ -183,21 +183,32 @@ class JoyCaptionCaptioner(Captioner):
                 'JoyCaption needs transformers: pip install "fluxkrea[joycaption]"'
             )
 
-        try:
-            # Succeeds if and only if the snapshot is already cached.
-            snapshot_download(self.model_id, local_files_only=True)
-        except Exception:  # noqa: BLE001 - hub raises several unrelated types
+        # Deliberately *not* `snapshot_download(local_files_only=True)`. That
+        # asks whether every file in the repo is present - .gitattributes and
+        # the LLaMA licence included - and reports a perfectly usable model as
+        # "not cached, will download 16GB". It said exactly that about a model
+        # that had captioned an image minutes earlier. What actually matters
+        # is the config and the weights.
+        config = try_to_load_from_cache(self.model_id, "config.json")
+        if not isinstance(config, str):
             return False, (
                 f"'{self.model_id}' is not in the local HuggingFace cache. "
                 "It is about 16GB and will download on first use. "
-                "Fetch it now with: "
-                f"huggingface-cli download {self.model_id}"
+                f"Fetch it now with: huggingface-cli download {self.model_id}"
+            )
+
+        snapshot = Path(config).parent
+        weights = any(snapshot.glob("*.safetensors")) or any(snapshot.glob("*.bin"))
+        if not weights:
+            return False, (
+                f"'{self.model_id}' has a config in the cache but no weights "
+                f"beside it. Complete it with: huggingface-cli download {self.model_id}"
             )
 
         where = "cuda" if self._resolve_device() == "cuda" else "cpu (slow)"
-        vram = "int8" if self.quantize else "bf16"
+        precision = "int8" if self.quantize else "bf16"
         return True, (
-            f"JoyCaption cached and ready: {self.model_id} on {where}, {vram}. "
+            f"JoyCaption cached and ready: {self.model_id} on {where}, {precision}. "
             "Loads on the first caption."
         )
 
@@ -257,7 +268,13 @@ class JoyCaptionCaptioner(Captioner):
             # Everything before this is the prompt echoed back.
             prompt_length = inputs["input_ids"].shape[-1]
             text = self._processor.tokenizer.decode(
-                generated[0, prompt_length:], skip_special_tokens=True
+                generated[0, prompt_length:],
+                skip_special_tokens=True,
+                # Off deliberately. The cleanup step was built for WordPiece
+                # and is destructive on this BPE tokenizer - it strips the
+                # space before punctuation, so captions come back reading
+                # "a black jacket ,zipped up". transformers warns about it.
+                clean_up_tokenization_spaces=False,
             ).strip()
         except Exception as exc:  # noqa: BLE001 - one bad image must not end the batch
             return False, f"JoyCaption inference error: {type(exc).__name__}: {exc}"

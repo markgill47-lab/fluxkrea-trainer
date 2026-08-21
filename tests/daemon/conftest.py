@@ -16,6 +16,7 @@ import httpx
 import pytest
 from starlette.testclient import TestClient
 
+from fluxkrea.core.captioners.prompts import PromptLibrary
 from fluxkrea.core.config import Config, load
 from fluxkrea.daemon.app import API, create_app
 from fluxkrea.daemon.registry import Registry
@@ -34,7 +35,13 @@ def config(tmp_path: Path) -> Config:
 
 @pytest.fixture
 def state(config: Config, tmp_path: Path) -> State:
-    return State(config=config, registry=Registry(file=tmp_path / "registry.json"))
+    # The prompt library goes in the temp dir too: a test that saves a
+    # prompt must not write into the developer's own config directory.
+    return State(
+        config=config,
+        registry=Registry(file=tmp_path / "registry.json"),
+        prompts=PromptLibrary(file=tmp_path / "prompts.json"),
+    )
 
 
 @pytest.fixture

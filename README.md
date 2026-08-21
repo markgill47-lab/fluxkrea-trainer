@@ -57,7 +57,7 @@ a client of that API rather than the thing that owns the logic. See
 | Remote control | REST + SSE, localhost-bound, driven over SSH tunnels |
 | Fleet | Client-side aggregation over a node list. No coordinator |
 | Fleet UI | **Not in the node-served client.** It would make every node know about, and reach, every other |
-| Captioning | Local vision model by default (Ollama). Claude is opt-in |
+| Captioning | Local by default — JoyCaption in-process, or Ollama. Claude is opt-in |
 | Dataset storage | Node-local. Sync by manifest diff over rsync or tar |
 | Platforms | Windows and Linux, equally supported |
 | Face detection | OpenCV YuNet now, behind a pluggable detector interface |
@@ -89,7 +89,8 @@ as input, not produced by it.
 pip install -e ".[dev,daemon]"
 
 fk node status                                   # versions, GPUs, detectors
-fk dataset caption ./poses                       # local vision model, no key
+fk prompts list                                  # saved caption prompts
+fk dataset caption ./poses --prompt-name person  # local vision model, no key
 fk dataset mask ./poses --expand 1.6             # detect, review, export masks/
 fk dataset validate ./poses --require-masks      # before the run, not after it
 
@@ -101,11 +102,16 @@ fk node models                                   # what this node can train
 fk train --model flux2 --dataset poses --masked --steps 2000 --watch
 ```
 
-Captioning runs on **Ollama** by default: local, no API key, and no image
-leaves the node. `fk node captioners --test` says whether it will work
-before a batch does; Claude is one setting away
-(`fk config set captioner.provider=claude`) for the sets where sending
-images out is acceptable.
+Captioning is local by default and no image leaves the node.
+**JoyCaption** is the one this was built around — a LLaVA model loaded
+in-process, fine-tuned for training captions and unwilling to refuse a
+subject; **Ollama** needs nothing installed into the process. Claude is
+one setting away for the sets where sending images out is acceptable.
+`fk node captioners --test` says whether a backend will work before a
+batch does.
+
+Prompts are saved and reusable: `fk prompts save mara-portrait "..."`,
+then `--prompt-name mara-portrait` on any node. Five are shipped.
 
 `fk --help` lists the rest. Every command is an API client, so the same
 one works locally and against a node over an SSH tunnel; with no daemon

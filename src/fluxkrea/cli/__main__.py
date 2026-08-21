@@ -84,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_serve(commands, common)
     _add_config(commands, common)
     _add_node(commands, common)
+    _add_prompts(commands, common)
     _add_dataset(commands, common)
     _add_jobs(commands, common)
     _add_train(commands, common)
@@ -140,6 +141,24 @@ def _add_config(commands: Any, common: argparse.ArgumentParser) -> None:
 
     actions.add_parser("secrets", parents=[common],
                        help="which API keys a node can find, and where it looked")
+
+
+def _add_prompts(commands: Any, common: argparse.ArgumentParser) -> None:
+    prompts = commands.add_parser("prompts", help="saved caption prompts")
+    actions = prompts.add_subparsers(dest="action", required=True)
+
+    listing = actions.add_parser("list", parents=[common], help="every prompt this node knows")
+    listing.add_argument("--full", action="store_true", help="print the whole text, not a preview")
+
+    show = actions.add_parser("show", parents=[common], help="one prompt, in full")
+    show.add_argument("name")
+
+    save = actions.add_parser("save", parents=[common], help="save or replace a prompt")
+    save.add_argument("name")
+    save.add_argument("text", nargs="?", help="the prompt; omit to read stdin")
+
+    remove = actions.add_parser("delete", parents=[common], help="delete a saved prompt")
+    remove.add_argument("name")
 
 
 def _add_node(commands: Any, common: argparse.ArgumentParser) -> None:
@@ -207,6 +226,7 @@ def _add_dataset(commands: Any, common: argparse.ArgumentParser) -> None:
     # not --url: that is the daemon's address, on every subcommand.
     caption_cmd.add_argument("--ollama-url", help="Ollama base URL; default from config")
     caption_cmd.add_argument("--prompt", help="what to ask the model; default from config")
+    caption_cmd.add_argument("--prompt-name", help="a saved prompt, from `fk prompts list`")
     caption_cmd.add_argument("--prefix", help="prepended to every caption - a trigger token")
     caption_cmd.add_argument("--overwrite", action="store_true",
                              help="re-caption images that already have one")
@@ -327,6 +347,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     handlers = {
         "node": _run_node,
+        "prompts": _run_prompts,
         "dataset": _run_dataset,
         "jobs": _run_jobs,
         "train": _run_train,
@@ -491,6 +512,70 @@ def _run_serve(args: argparse.Namespace, config: Config, console: Console) -> in
     except KeyboardInterrupt:
         console.write("stopped")
     return OK
+
+
+def _run_prompts(
+    args: argparse.Namespace, config: Config, console: Console, client: Client
+) -> int:
+    """Saved caption prompts, on whichever node the client points at."""
+    if args.action == "list":
+        payload = client.get("/captioners/prompts")
+        if args.json:
+            emit_json(payload)
+            return OK
+        rows = [
+            (
+                prompt["name"],
+                "built-in" if prompt["builtin"] else "saved",
+                prompt["text"] if args.full else _preview(prompt["text"]),
+            )
+            for prompt in payload["prompts"]
+        ]
+        console.write(table(rows, headers=("name", "source", "prompt")))
+        console.write("")
+        console.write(str(payload["file"]))
+        return OK
+
+    if args.action == "show":
+        found = next(
+            (p for p in client.get("/captioners/prompts")["prompts"] if p["name"] == args.name),
+            None,
+        )
+        if found is None:
+            console.write(f"x no prompt named {args.name!r}")
+            return USAGE
+        if args.json:
+            emit_json(found)
+        else:
+            console.write(found["text"])
+        return OK
+
+    if args.action == "save":
+        # Reading stdin lets a long prompt come from a file or a heredoc
+        # rather than being fought with through shell quoting.
+        text = args.text if args.text is not None else sys.stdin.read()
+        saved = client.put(f"/captioners/prompts/{args.name}", json_body={"text": text})
+        if args.json:
+            emit_json(saved)
+            return OK
+        console.write(f"saved {saved['name']!r}")
+        if saved.get("shadows_builtin"):
+            console.write("  (standing over the built-in of the same name; delete to restore it)")
+        return OK
+
+    payload = client.delete(f"/captioners/prompts/{args.name}")
+    if args.json:
+        emit_json(payload)
+        return OK
+    console.write(f"deleted {args.name!r}")
+    if payload.get("restored"):
+        console.write("  (the built-in of the same name is back)")
+    return OK
+
+
+def _preview(text: str, width: int = 64) -> str:
+    flat = " ".join(text.split())
+    return flat if len(flat) <= width else flat[: width - 3] + "..."
 
 
 def _run_node(args: argparse.Namespace, config: Config, console: Console, client: Client) -> int:
@@ -761,6 +846,7 @@ def _options(args: argparse.Namespace) -> dict[str, Any]:
             "model": args.model,
             "url": args.ollama_url,
             "prompt": args.prompt,
+            "prompt_name": args.prompt_name,
             "prefix": args.prefix,
             "overwrite": args.overwrite,
             "max_tokens": args.max_tokens,

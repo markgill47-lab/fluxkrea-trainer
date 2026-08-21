@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 from .base import DEFAULT_PROMPT, Captioner, CaptionerError
+from .prompts import BUILTIN_PROMPTS, Prompt, PromptLibrary
 
 #: What ``caption.backend`` defaults to in the config.
 DEFAULT_BACKEND = "ollama"
@@ -120,10 +121,13 @@ def labels() -> dict[str, str]:
 
 
 __all__ = [
+    "BUILTIN_PROMPTS",
     "DEFAULT_BACKEND",
     "DEFAULT_PROMPT",
     "Captioner",
     "CaptionerError",
+    "Prompt",
+    "PromptLibrary",
     "available",
     "from_config",
     "get_captioner",

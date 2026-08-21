@@ -180,6 +180,54 @@ def test_captioner(
     return body
 
 
+# --------------------------------------------------------------------------
+# saved prompts
+# --------------------------------------------------------------------------
+
+
+@router.get("/captioners/prompts")
+def list_prompts(state: State = Depends(get_state)) -> dict[str, Any]:
+    """Every prompt this node knows, built-ins included."""
+    return {
+        "prompts": [prompt.as_dict() for prompt in state.prompts.all()],
+        "file": state.prompts.file.as_posix(),
+    }
+
+
+@router.put("/captioners/prompts/{name}")
+def put_prompt(
+    name: str,
+    payload: dict[str, Any] = Body(default={}),
+    state: State = Depends(get_state),
+) -> dict[str, Any]:
+    """Save a prompt under a name, replacing any prompt already there."""
+    try:
+        saved = state.prompts.save(name, str(payload.get("text", "")))
+    except ValueError as exc:
+        raise Denied(str(exc), status=422) from exc
+    except OSError as exc:
+        raise Denied(f"cannot write the prompt file: {exc}", status=500) from exc
+    return saved.as_dict()
+
+
+@router.delete("/captioners/prompts/{name}")
+def delete_prompt(name: str, state: State = Depends(get_state)) -> dict[str, Any]:
+    """Delete a saved prompt. A shadowed built-in reappears underneath."""
+    try:
+        removed = state.prompts.delete(name)
+    except OSError as exc:
+        raise Denied(f"cannot write the prompt file: {exc}", status=500) from exc
+    if not removed:
+        # Either it never existed or it is a built-in nobody saved over -
+        # and a built-in is not deletable, which is worth saying plainly.
+        raise Denied(
+            f"no saved prompt named {name!r}"
+            + (" - built-in prompts cannot be deleted" if name in state.prompts else ""),
+            status=404,
+        )
+    return {"name": name, "deleted": True, "restored": state.prompts.get(name) is not None}
+
+
 def _payload(state: State) -> dict[str, Any]:
     config = state.config.as_dict()
     return {

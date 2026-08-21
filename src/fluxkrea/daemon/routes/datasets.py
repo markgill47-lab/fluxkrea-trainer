@@ -405,11 +405,19 @@ def _build(state: State, operation: str, root: Any, options: dict[str, Any]):  #
         captioner = _captioner(state, options)
         settings = config.captioner
 
+        # A name wins over free text, and an unknown name falls back to the
+        # default rather than to nothing - two hundred images described by
+        # an empty prompt is a worse outcome than a typo deserves.
+        prompt_text = state.prompts.resolve(
+            options.get("prompt_name"),
+            str(_opt(options, "prompt", settings.prompt) or DEFAULT_PROMPT),
+        )
+
         def run_caption(emit: Emitter, cancel: threading.Event) -> Any:
             return caption(
                 root,
                 captioner,
-                prompt=str(_opt(options, "prompt", settings.prompt) or DEFAULT_PROMPT),
+                prompt=prompt_text,
                 prefix=str(_opt(options, "prefix", settings.prefix)),
                 overwrite=bool(_opt(options, "overwrite", False)),
                 max_tokens=int(_opt(options, "max_tokens", settings.max_tokens)),

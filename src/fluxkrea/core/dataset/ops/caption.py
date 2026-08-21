@@ -25,6 +25,7 @@ Three behaviours worth calling out, all of them lessons from watching a
 from __future__ import annotations
 
 import os
+import re
 import threading
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
@@ -248,9 +249,20 @@ PREAMBLES = (
 )
 
 
+#: ``**bold**`` and ``__bold__``, keeping what they wrapped.
+_MARKDOWN_EMPHASIS = re.compile(r"\*\*(.+?)\*\*|__(.+?)__")
+
+
 def _clean(text: str, prefix: str = "") -> str:
     """Tidy a model's answer into something usable as a caption."""
     body = " ".join(text.split()).strip().strip('"')
+
+    # A training caption is plain text. Markdown emphasis arrives when a
+    # model reads a list of things to cover as a form to fill in and answers
+    # "**Pose:** Standing. **Expression:** Neutral." The prompts ask for
+    # prose, which mostly prevents it; this is what catches the rest, because
+    # a LoRA trained on asterisks learns asterisks.
+    body = _MARKDOWN_EMPHASIS.sub(lambda m: m.group(1) or m.group(2), body)
 
     lowered = body.lower()
     for preamble in PREAMBLES:
@@ -259,14 +271,17 @@ def _clean(text: str, prefix: str = "") -> str:
             body = body[:1].upper() + body[1:]
             break
 
-    # A trigger token written as "mara," and one written as "mara" have to
-    # produce the same caption, so the separator is normalised rather than
-    # trusted from whichever way it happened to be typed.
-    prefix = prefix.strip().rstrip(",;:").strip()
+    prefix = prefix.strip()
     if not prefix:
         return body
     if not body:
         return prefix
+    # The separator the prefix was written with is kept, because conventions
+    # differ and both are deliberate: "mara_ohara" wants the comma of a tag
+    # list, "**Mara**:" wants its colon. Only the space is supplied, since
+    # forgetting it is a typo rather than a style.
+    if prefix.endswith((",", ":", ";", ".", "-", "|")):
+        return f"{prefix} {body}"
     return f"{prefix}, {body}"
 
 
