@@ -317,3 +317,102 @@
   flex: 1;
   min-width: 0;
 }
+
+/* -- resize dialog -------------------------------------------------------- */
+
+.modal__panel--narrow {
+  width: min(520px, 92vw);
+}
+
+.modal__note--lead {
+  margin-top: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.modal__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* The three sizes a dataset is actually trained at. Big targets, because
+ * this is the one decision the dialog exists to take. */
+.sizes {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0 10px;
+}
+
+.sizes__item {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sizes__item:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.sizes__item[aria-checked="true"] {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.sizes__unit {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.sizes__upscale {
+  align-items: flex-start;
+}
+
+.sizes__aside {
+  color: var(--text-tertiary);
+}
+
+/* -- the before-you-commit tally ------------------------------------------ */
+
+.tally {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tally__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.tally__row--muted {
+  color: var(--text-tertiary);
+}
+
+.tally__n {
+  min-width: 34px;
+  text-align: right;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.tally__row--muted .tally__n {
+  font-weight: 400;
+  color: var(--text-tertiary);
+}

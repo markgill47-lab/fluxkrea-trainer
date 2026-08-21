@@ -426,14 +426,30 @@
   accent-color: var(--accent);
 }
 
+/* Same treatment as every other select in the client: a chevron near the
+ * value on a raised ground, so it does not read as a text field. */
 .field select {
+  appearance: none;
   height: 26px;
-  padding: 0 6px;
-  background: var(--bg-input);
+  padding: 0 22px 0 6px;
+  background-color: var(--bg-raised);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
+  background-position:
+    right 10px center,
+    right 5px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-primary);
   font: inherit;
+  cursor: pointer;
+}
+
+.field select:hover {
+  border-color: var(--border-strong);
 }
 
 .kv {

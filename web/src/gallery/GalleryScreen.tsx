@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 import { api, ApiError, isAbort } from "~/api/client";
 import type { Item, Task, ValidationReport } from "~/api/types";
 import { GalleryInspectorHost } from "./InspectorHost";
+import { ResizeDialog } from "./ResizeDialog";
 import { ThumbnailGrid } from "./ThumbnailGrid";
 import { ValidationPanel } from "./ValidationPanel";
 
@@ -55,6 +56,7 @@ export function GalleryScreen({ dataset, onError, onOpenReview }: Props) {
   const [task, setTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
   const [showProblems, setShowProblems] = useState(false);
+  const [resizing, setResizing] = useState(false);
   const anchor = useRef<string | null>(null);
 
   const cell = CELL_SIZES[cellIndex] ?? 160;
@@ -247,6 +249,14 @@ export function GalleryScreen({ dataset, onError, onOpenReview }: Props) {
         </button>
         <button
           class="btn"
+          onClick={() => setResizing(true)}
+          disabled={!!task}
+          title="Fit every image's longest edge to 512, 1024 or 2048"
+        >
+          Resize
+        </button>
+        <button
+          class="btn"
           onClick={() => void runOperation("caption", {})}
           disabled={!!task}
           title="Caption images that have none, with the configured backend"
@@ -349,6 +359,18 @@ export function GalleryScreen({ dataset, onError, onOpenReview }: Props) {
         onClear={() => setSelected(new Set())}
         onOpen={onOpenReview}
       />
+
+      {resizing && (
+        <ResizeDialog
+          items={items}
+          running={!!task}
+          onClose={() => setResizing(false)}
+          onRun={(size, upscale) => {
+            setResizing(false);
+            void runOperation("resize", { size, upscale });
+          }}
+        />
+      )}
     </div>
   );
 }
