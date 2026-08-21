@@ -527,6 +527,18 @@ def _run_serve(args: argparse.Namespace, config: Config, console: Console) -> in
     # machine is a thing that happens and reads as impossible behaviour.
     console.write(f"package   {Path(__file__).resolve().parent.parent}")
 
+    # The one that is genuinely impossible to work out from the inside.
+    container = paths.app_package()
+    if container:
+        console.write("")
+        console.write(f"!  running inside the Windows app package {container}")
+        console.write("!  %APPDATA% and %LOCALAPPDATA% are virtualised: the path above is")
+        console.write("!  real inside this process and a different file outside it. Settings")
+        console.write("!  written anywhere else will not be seen here, and this daemon's own")
+        console.write("!  writes will not be seen there. Start the daemon from a PowerShell")
+        console.write("!  outside the app instead.")
+        console.write("")
+
     if config.daemon.host in ("127.0.0.1", "localhost", "::1"):
         console.write("reach it from a laptop with:")
         console.write(

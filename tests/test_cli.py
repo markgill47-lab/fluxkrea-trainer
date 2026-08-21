@@ -118,6 +118,45 @@ def test_serve_says_when_it_found_no_config_at_all(
     assert str(paths.config_file()) in printed
 
 
+def test_serve_warns_when_the_paths_are_virtualised(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A packaged process reads and writes a private copy of %APPDATA%.
+
+    Same path string, different file, and nothing about it is visible from
+    inside: the daemon named a config file, reported settings that file did
+    not contain, wrote changes that never reached it, and failed every run
+    with a setting that was plainly there. Every observation was correct.
+    One syscall makes it a sentence instead of an afternoon.
+    """
+    import fluxkrea.daemon.app as app
+
+    monkeypatch.setattr(app, "serve", lambda config: None)
+    monkeypatch.setattr(paths, "app_package", lambda: "Claude_pzs8sxrjxfjjc")
+
+    assert run("serve") == OK
+    printed = capsys.readouterr().err
+    assert "Claude_pzs8sxrjxfjjc" in printed
+    assert "virtualised" in printed
+
+
+def test_serve_says_nothing_about_packaging_when_there_is_none(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import fluxkrea.daemon.app as app
+
+    monkeypatch.setattr(app, "serve", lambda config: None)
+    monkeypatch.setattr(paths, "app_package", lambda: None)
+
+    assert run("serve") == OK
+    assert "virtualised" not in capsys.readouterr().err
+
+
+def test_app_package_is_none_off_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(paths.sys, "platform", "linux")
+    assert paths.app_package() is None
+
+
 def test_config_path_lists_every_location(capsys: pytest.CaptureFixture[str]) -> None:
     assert run("--json", "config", "path") == OK
     located = payload(capsys)

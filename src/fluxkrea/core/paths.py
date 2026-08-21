@@ -81,6 +81,51 @@ def is_within(child: str | os.PathLike[str], parent: str | os.PathLike[str]) -> 
     return True
 
 
+#: Windows returns this from ``GetCurrentPackageFullName`` when the process
+#: is not inside an app package. Anything else - including "buffer too
+#: small" - means it is.
+_APPMODEL_ERROR_NO_PACKAGE = 15700
+
+
+def app_package() -> str | None:
+    r"""The Windows app package this process runs inside, or ``None``.
+
+    A process launched from inside an MSIX package - the terminal embedded
+    in a packaged desktop app, for instance - gets a *private* view of
+    ``%APPDATA%`` and ``%LOCALAPPDATA%``. The path strings are byte for byte
+    what the host uses; the files behind them are not, and nothing outside
+    the container can see the writes.
+
+    That cost an afternoon. A daemon started that way read a config file it
+    named as ``AppData\Roaming\FluxKrea\config.toml``, reported settings
+    the file on disk did not contain, wrote changes that never appeared in
+    it, and failed every training run with "backends.aitoolkit_path is not
+    set" while that exact file had it set. Every observation was correct and
+    the conclusion was impossible, because two files answered to one path.
+
+    So: ask. It is one syscall, and the answer turns an impossible bug into
+    a sentence.
+    """
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+
+        length = ctypes.c_uint32(0)
+        rc = ctypes.windll.kernel32.GetCurrentPackageFullName(ctypes.byref(length), None)
+        if rc == _APPMODEL_ERROR_NO_PACKAGE:
+            return None
+        buffer = ctypes.create_unicode_buffer(max(length.value, 512))
+        length = ctypes.c_uint32(len(buffer))
+        rc = ctypes.windll.kernel32.GetCurrentPackageFullName(ctypes.byref(length), buffer)
+        if rc == _APPMODEL_ERROR_NO_PACKAGE:
+            return None
+        return buffer.value or "unknown package"
+    except (AttributeError, OSError):
+        # Pre-Windows-8 has no appmodel API at all, which means no packages.
+        return None
+
+
 def home() -> Path:
     """The user's home directory, honouring ``FLUXKREA_HOME``.
 
