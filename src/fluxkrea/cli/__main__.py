@@ -25,6 +25,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -511,6 +512,20 @@ def _run_serve(args: argparse.Namespace, config: Config, console: Console) -> in
     else:
         console.write(f"config    none found - looked in {paths.config_file()}")
         console.write("          every backend and dataset setting is at its default")
+
+    # Environment beats the file, silently and by design - which is right
+    # for a fleet node and wrong to leave invisible. A daemon reporting a
+    # setting the file does not contain, or missing one it does, is an
+    # override nobody remembers setting; naming them here is the difference
+    # between five minutes and an afternoon.
+    overrides = sorted(k for k in os.environ if k.startswith("FLUXKREA_") and os.environ[k].strip())
+    for key in overrides:
+        shown = "<set>" if "TOKEN" in key or "KEY" in key else os.environ[key]
+        console.write(f"env       {key}={shown}")
+
+    # And which copy of the package is running, because two installs on one
+    # machine is a thing that happens and reads as impossible behaviour.
+    console.write(f"package   {Path(__file__).resolve().parent.parent}")
 
     if config.daemon.host in ("127.0.0.1", "localhost", "::1"):
         console.write("reach it from a laptop with:")
