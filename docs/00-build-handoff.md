@@ -237,6 +237,19 @@ Places where the spec left room and the code had to pick:
   expected rather than where ai-toolkit puts them, which is exactly why
   that test hid the bug - `test_plan.py` now pins our folder against
   ai-toolkit's own formula.
+- **Memory settings come from the card, not from the model.** `low_vram`
+  was a per-model constant, True for Klein 9B because it "does not fit on
+  16GB". Two things wrong with that. ai-toolkit's `low_vram` moves the
+  *transformer* to CPU, not the text encoder; and a 31.8GB card holds a
+  17GB model twice over. The result on a 5090 was 98% GPU utilisation,
+  12GB living in Windows' shared memory, and an eleven-hour ETA for an
+  hour of work - busy, but busy waiting. `backends/memory.py` answers
+  "does this fit" from both halves, prefers quantising to offloading
+  (precision is cheaper than the PCIe bus), and never reaches for
+  `low_vram` at all. A run's own settings still win.
+- **The old test asserted the bug.** `test_klein_9b_gets_low_vram_and_4b_
+  does_not` pinned the constant, so the suite defended it. A test that
+  encodes a per-model answer to a per-machine question will do that.
 - **Nothing we write into a run folder may start with the run name.**
   ai-toolkit decides whether to resume by globbing `{job_name}*` in that
   folder and calling `torch.load` on the newest match

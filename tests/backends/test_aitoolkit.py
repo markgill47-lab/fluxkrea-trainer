@@ -100,10 +100,11 @@ def test_skip_first_sample_is_a_train_key(backend: AIToolkitBackend) -> None:
     assert "sample_at_first" not in process.get("sample", {})
 
 
-def test_layer_offloading_is_off(backend: AIToolkitBackend) -> None:
-    """v1 found it too slow even at 30%. Off unless explicitly asked for."""
-    assert process_of(backend, spec_for())["model"]["layer_offloading"] is False
-    assert process_of(backend, spec_for(extra={"layer_offloading": True}))["model"][
+def test_layer_offloading_is_off_when_the_model_fits(backend: AIToolkitBackend) -> None:
+    """It is slow, so it is only for a model that will not fit otherwise."""
+    fits = AIToolkitBackend(output_root=backend.output_root, vram_gb=80.0)
+    assert process_of(fits, spec_for())["model"]["layer_offloading"] is False
+    assert process_of(fits, spec_for(extra={"layer_offloading": True}))["model"][
         "layer_offloading"
     ] is True
 
@@ -146,9 +147,34 @@ def test_mask_min_value_is_carried(backend: AIToolkitBackend) -> None:
 # --------------------------------------------------------------------------
 
 
-def test_klein_9b_gets_low_vram_and_4b_does_not(backend: AIToolkitBackend) -> None:
-    assert process_of(backend, spec_for("flux2-klein-9b"))["model"]["low_vram"] is True
-    assert process_of(backend, spec_for("flux2-klein-4b"))["model"]["low_vram"] is False
+def test_memory_settings_come_from_the_card_not_the_model(tmp_path: Path) -> None:
+    """This replaces a test that pinned the bug.
+
+    `low_vram` used to be a per-model constant - True for Klein 9B, on the
+    theory that it "does not fit on 16GB". ai-toolkit's `low_vram` moves
+    the *transformer* to CPU, so on a 32GB card that streamed a 17GB model
+    across PCIe: 98% GPU utilisation, 12GB in Windows' shared memory, and
+    an eleven-hour ETA for an hour of work. The old test asserted exactly
+    that behaviour, which is why nothing caught it.
+    """
+    big = AIToolkitBackend(output_root=tmp_path / "runs", vram_gb=31.8)
+    small = AIToolkitBackend(output_root=tmp_path / "runs", vram_gb=16.0)
+
+    # 16.9GB of weights, on a card with room for them.
+    roomy = process_of(big, spec_for("flux2-klein-9b"))["model"]
+    assert roomy["low_vram"] is False
+    assert roomy["quantize"] is False
+
+    # The same model on half the card.
+    tight = process_of(small, spec_for("flux2-klein-9b"))["model"]
+    assert tight["quantize"] is True
+
+
+def test_an_explicit_setting_beats_the_card(tmp_path: Path) -> None:
+    """The card is a good guess about the card, not about the intent."""
+    backend = AIToolkitBackend(output_root=tmp_path / "runs", vram_gb=80.0)
+    block = process_of(backend, spec_for("flux2-klein-9b", extra={"low_vram": True}))["model"]
+    assert block["low_vram"] is True
 
 
 def test_network_dim_defaults_per_model_and_can_be_overridden(backend: AIToolkitBackend) -> None:

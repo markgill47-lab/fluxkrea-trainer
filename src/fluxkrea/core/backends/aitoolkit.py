@@ -41,6 +41,7 @@ from ..events import Emitter, Log, LossPoint, Progress, no_op, safe
 from . import BackendError, BackendProgress, register
 from .models import Model, UnknownModel
 from .models import find as find_model
+from .memory import MemoryPlan, detect_vram_gb, plan_memory
 from .models import get as get_model
 from .process import ProcessRunner, python_executable
 from .spec import RunSpec, run_name as spec_run_name
@@ -195,12 +196,15 @@ class AIToolkitBackend:
         output_root: str | os.PathLike[str] | None = None,
         model_paths: dict[str, str] | None = None,
         weight_roots: tuple[str, ...] = (),
+        vram_gb: float | None = None,
     ) -> None:
         self.toolkit_path = paths.expand(toolkit_path) if toolkit_path else None
         self.python_exe = python_exe
         self.output_root = paths.expand(output_root) if output_root else None
         self.model_paths = dict(model_paths or {})
         self.weight_roots = tuple(weight_roots)
+        #: Overrides detection, for a test or a node that knows better.
+        self.vram_gb = vram_gb
         self._runner: ProcessRunner | None = None
         self._parser: OutputParser | None = None
         self._lock = threading.Lock()
@@ -252,6 +256,7 @@ class AIToolkitBackend:
 
         model = get_model(run.model)
         payload = self.build(run, model)
+        self._last_plan = self.memory_plan(run, model)
 
         target = self.config_path(run)
         body = HEADER + yaml.dump(payload, default_flow_style=False, sort_keys=False)
@@ -322,6 +327,11 @@ class AIToolkitBackend:
             },
         }
 
+    def memory_plan(self, run: RunSpec, model: Model) -> MemoryPlan:
+        """How this model is made to fit on this node's card."""
+        vram = self.vram_gb if self.vram_gb is not None else detect_vram_gb(run.device)
+        return plan_memory(model.weights_gb, vram)
+
     def weights_for(self, run: RunSpec, model: Model) -> str:
         """What ai-toolkit should load, most specific first.
 
@@ -351,22 +361,28 @@ class AIToolkitBackend:
         )
 
     def _model_block(self, run: RunSpec, model: Model) -> dict[str, Any]:
+        # Memory settings come from the card, not from the model. They used
+        # to be per-model constants, which is how a 17GB model that fits
+        # twice over in a 32GB card ended up streamed from system RAM at
+        # 98% utilisation and eleven hours a run. See backends/memory.py.
+        plan = self.memory_plan(run, model)
+
         block: dict[str, Any] = {
             "name_or_path": _posix(self.weights_for(run, model)),
             "is_flux": model.is_flux,
-            "quantize": bool(run.extra.get("quantize", True)),
-            "quantize_te": bool(run.extra.get("quantize_te", True)),
-            "low_vram": bool(run.extra.get("low_vram", model.low_vram)),
-            # Layer offloading is slow enough to be the wrong trade even at
-            # 30%, which v1 discovered and wrote down. Off unless asked for.
-            "layer_offloading": bool(run.extra.get("layer_offloading", False)),
+            **plan.as_config(),
         }
 
-        # How much to offload, when it is on. ai-toolkit defaults both to
-        # 1.0 - the whole model on CPU, which works and crawls. On a card
-        # that is close rather than hopeless, a partial offload is the
-        # difference between a slow run and no run, so the dial is
-        # reachable rather than all-or-nothing.
+        # Anything named on the run wins over the plan: the card is a good
+        # guess about the card, not about what somebody is trying to do.
+        for knob in (
+            "quantize",
+            "quantize_te",
+            "low_vram",
+            "layer_offloading",
+        ):
+            if (value := run.extra.get(knob)) is not None:
+                block[knob] = bool(value)
         for knob in (
             "layer_offloading_transformer_percent",
             "layer_offloading_text_encoder_percent",
@@ -510,6 +526,8 @@ class AIToolkitBackend:
             self._runner = runner
             self._parser = parser
 
+        if plan := getattr(self, "_last_plan", None):
+            emit(Log(line=f"Memory: {plan.reason}"))
         emit(Log(line=f"Starting ai-toolkit: {config_path.name}"))
         code = runner.run(emit, cancel, on_line=parser)
         parser.flush()

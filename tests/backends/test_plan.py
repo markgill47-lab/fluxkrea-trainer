@@ -359,7 +359,7 @@ def test_the_offload_percentages_are_reachable() -> None:
     from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
     from fluxkrea.core.backends.spec import RunSpec
 
-    backend = AIToolkitBackend()
+    backend = AIToolkitBackend(vram_gb=200.0)
     spec = RunSpec(
         model="flux2",
         dataset="d",
@@ -381,7 +381,78 @@ def test_the_offload_percentages_are_absent_unless_asked_for() -> None:
     from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
     from fluxkrea.core.backends.spec import RunSpec
 
-    backend = AIToolkitBackend()
+    # A card with room, so the plan does not turn offloading on at all.
+    backend = AIToolkitBackend(vram_gb=200.0)
     model_block = backend.build(RunSpec(model="flux2", dataset="d"))["config"]["process"][0]["model"]
 
+    assert model_block["layer_offloading"] is False
     assert "layer_offloading_transformer_percent" not in model_block
+
+
+# --------------------------------------------------------------------------
+# fitting a model on a card
+# --------------------------------------------------------------------------
+
+
+def test_a_model_that_fits_is_left_alone() -> None:
+    """The bug, stated as a test: 16.9GB of weights on a 31.8GB card."""
+    from fluxkrea.core.backends.memory import plan_memory
+
+    plan = plan_memory(16.9, 31.8)
+    assert plan.quantize is False
+    assert plan.low_vram is False
+    assert plan.layer_offloading is False
+    assert "fit" in plan.reason
+
+
+def test_a_model_that_does_not_fit_is_quantised_before_it_is_offloaded() -> None:
+    """Quantising costs precision; offloading costs the PCIe bus."""
+    from fluxkrea.core.backends.memory import plan_memory
+
+    plan = plan_memory(24.5, 31.8)
+    assert plan.quantize is True
+    assert plan.layer_offloading is False
+
+
+def test_a_model_that_fits_no_way_offloads_only_the_excess() -> None:
+    from fluxkrea.core.backends.memory import plan_memory
+
+    plan = plan_memory(64.0, 31.8)
+    assert plan.layer_offloading is True
+    assert 0.1 <= plan.transformer_percent < 1.0
+    assert "slow" in plan.reason
+
+
+def test_the_same_model_gets_different_answers_on_different_cards() -> None:
+    """Which is the whole point - a fleet has both."""
+    from fluxkrea.core.backends.memory import plan_memory
+
+    assert plan_memory(16.9, 31.8).quantize is False
+    assert plan_memory(16.9, 16.0).quantize is True
+
+
+def test_low_vram_is_never_chosen_by_the_plan() -> None:
+    """It moves the transformer to CPU, which is the thing to avoid.
+
+    Offloading a percentage is the graded version of the same idea; this
+    flag is the all-or-nothing one, and the plan never reaches for it.
+    """
+    from fluxkrea.core.backends.memory import plan_memory
+
+    for weights, vram in ((7.2, 31.8), (24.5, 31.8), (64.0, 31.8), (64.0, 8.0)):
+        assert plan_memory(weights, vram).low_vram is False
+
+
+def test_no_card_is_cautious_rather_than_optimistic() -> None:
+    from fluxkrea.core.backends.memory import plan_memory
+
+    plan = plan_memory(16.9, None)
+    assert plan.quantize is True
+    assert "no GPU" in plan.reason
+
+
+def test_the_offload_percentages_ride_along_only_when_offloading() -> None:
+    from fluxkrea.core.backends.memory import plan_memory
+
+    assert "layer_offloading_transformer_percent" not in plan_memory(7.2, 31.8).as_config()
+    assert "layer_offloading_transformer_percent" in plan_memory(64.0, 31.8).as_config()

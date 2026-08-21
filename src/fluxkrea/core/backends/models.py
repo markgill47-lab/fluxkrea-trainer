@@ -38,8 +38,10 @@ class Model:
     #: Sensible LoRA rank. FLUX.2's fused transformer wants more than FLUX.1.
     network_dim: int = 32
     network_alpha: int = 32
-    #: Keep the text encoder off the GPU. The 9B encoder does not fit
-    #: alongside the transformer on a 16GB card; the 4B one does.
+    #: Retained only so an existing config that sets it keeps working.
+    #: **Not used to decide anything.** ai-toolkit's ``low_vram`` moves the
+    #: *transformer* to CPU, and whether that is needed depends on the card
+    #: rather than the model - see ``backends/memory.py``.
     low_vram: bool = False
     #: Guidance-distilled models want a higher scale at sample time.
     guidance_scale: float = 4.0
@@ -54,6 +56,9 @@ class Model:
     #: Nothing caught it, because a config-shape test only proves the key
     #: is present and `get_job` does not fetch weights.
     repo: str = ""
+    #: Transformer size in bf16, gigabytes - measured from the checkpoints,
+    #: not from parameter counts. What decides whether this fits on a card.
+    weights_gb: float = 0.0
     #: Filenames this model's weights go by on disk, most specific first.
     #: Used to find a checkpoint already sitting in a ComfyUI folder rather
     #: than downloading a second copy of it.
@@ -120,6 +125,7 @@ MODELS: tuple[Model, ...] = (
     Model(
         id="flux2",
         repo="black-forest-labs/FLUX.2-dev",
+        weights_gb=64.0,
         weight_globs=('*flux*2*dev*.safetensors',),
         arch="flux2",
         label="FLUX.2 dev",
@@ -134,6 +140,7 @@ MODELS: tuple[Model, ...] = (
     Model(
         id="flux2-klein-4b",
         repo="black-forest-labs/FLUX.2-klein-base-4B",
+        weights_gb=7.2,
         weight_globs=('*klein*base*4b*.safetensors', '*klein*4b*.safetensors'),
         arch="flux2_klein_4b",
         label="FLUX.2 Klein 4B",
@@ -148,6 +155,7 @@ MODELS: tuple[Model, ...] = (
     Model(
         id="flux2-klein-9b",
         repo="black-forest-labs/FLUX.2-klein-base-9B",
+        weights_gb=16.9,
         weight_globs=('*klein*base*9b*.safetensors', '*klein*9b*.safetensors'),
         arch="flux2_klein_9b",
         label="FLUX.2 Klein 9B",
@@ -165,6 +173,7 @@ MODELS: tuple[Model, ...] = (
         # No public repo: Krea 2 is a local checkpoint here, so a run must
         # be told where it is - backends.model_paths or extra.model_path.
         repo="",
+        weights_gb=24.5,
         weight_globs=("*krea2*.safetensors", "*krea*2*.safetensors"),
         label="Krea 2",
         network_dim=32,
@@ -178,6 +187,7 @@ MODELS: tuple[Model, ...] = (
     Model(
         id="flux1",
         repo="black-forest-labs/FLUX.1-dev",
+        weights_gb=23.8,
         weight_globs=('*flux*1*dev*.safetensors', 'flux1*.safetensors'),
         arch="",
         label="FLUX.1 dev",
