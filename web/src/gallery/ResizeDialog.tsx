@@ -21,8 +21,14 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import type { Item } from "~/api/types";
 
-/** The sizes a FLUX/Krea dataset is actually trained at. */
-export const SIZES = [512, 1024, 2048] as const;
+/** The sizes a FLUX/Krea dataset is actually trained at.
+ *
+ * No 512. It has never been used here, and an option nobody picks is one
+ * more thing to read past on a dialog that exists to make one decision.
+ * `fk dataset resize --size N` still takes any number, so the capability
+ * is not gone - only the preset.
+ */
+export const SIZES = [1024, 2048] as const;
 
 export function ResizeDialog({
   items,

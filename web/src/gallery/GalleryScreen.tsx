@@ -251,7 +251,7 @@ export function GalleryScreen({ dataset, onError, onOpenReview }: Props) {
           class="btn"
           onClick={() => setResizing(true)}
           disabled={!!task}
-          title="Fit every image's longest edge to 512, 1024 or 2048"
+          title="Fit every image's longest edge to 1024 or 2048"
         >
           Resize
         </button>
