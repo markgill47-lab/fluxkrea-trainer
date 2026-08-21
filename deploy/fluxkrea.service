@@ -1,0 +1,54 @@
+# FluxKrea Trainer daemon, as a systemd *user* unit.
+#
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/fluxkrea.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now fluxkrea
+#
+# A user unit, not a system one, on purpose: training runs read and write
+# datasets and checkpoints in the operator's own home, and a root daemon
+# would spend its life fighting file ownership. Enable lingering if the
+# node should serve without anyone logged in:
+#
+#   sudo loginctl enable-linger $USER
+#
+# It binds 127.0.0.1 by default. Reach it from a laptop with an SSH tunnel:
+#
+#   ssh -N -L 8471:localhost:8471 you@olympus-1
+#
+# Binding wider needs FLUXKREA_TOKEN set; the daemon refuses otherwise.
+
+[Unit]
+Description=FluxKrea Trainer daemon
+Documentation=https://github.com/local/fluxkrea
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+ExecStart=%h/.local/bin/fk serve
+
+# Secrets come from the environment, never from the config file - which is
+# what lets the config be committed and shared across the fleet. Put the
+# API key and any token in a file only this user can read:
+#
+#   install -m 600 /dev/null %h/.config/fluxkrea/env
+#   printf 'FLUXKREA_CLAUDE_API_KEY=sk-...\n' >> %h/.config/fluxkrea/env
+EnvironmentFile=-%h/.config/fluxkrea/env
+
+# Where the datasets live on this node. Scoping this is what keeps the API
+# from being a file browser for the whole machine.
+Environment=FLUXKREA_DATASET_ROOTS=%h/datasets
+
+Restart=on-failure
+RestartSec=5
+
+# Training runs are long; do not let a restart interrupt one lightly.
+TimeoutStopSec=120
+KillSignal=SIGINT
+
+# The queue persists to disk, so a restart resumes rather than losing work.
+# In-flight jobs come back marked interrupted, which is deliberate.
+
+[Install]
+WantedBy=default.target
