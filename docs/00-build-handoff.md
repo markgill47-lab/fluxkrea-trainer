@@ -247,6 +247,30 @@ Places where the spec left room and the code had to pick:
   renumbering. Carry them forward rather than rediscovering them; the
   list is in [01](01-v1-audit.md#dataset-side-rot-fixed-in-d1890ce).
 
+## Testing the client
+
+`cd web && npm test` — Vitest, jsdom, `@testing-library/preact`. Separate
+from `pytest` on purpose: they need a DOM and a component tree, and folding
+them into the Python run would make every Python test wait on npm.
+
+What belongs there is behaviour that **only exists once a component is
+mounted**: state that has to survive an unmount, a value that must not be
+written when it did not change, the exact body handed to the API. Styling,
+layout and "does it render" are what the browser pass is for, and neither
+replaces the other.
+
+Two notes for whoever writes the next one:
+
+* `tests/setup.ts` stubs `matchMedia`, `ResizeObserver`, `EventSource` and
+  a canvas context at **module scope**, not in a hook. uPlot reads
+  `matchMedia` while being imported, so a stub installed in `beforeEach`
+  arrives after the module graph has already thrown.
+* A screen that loads several endpoints re-renders as they land, and a
+  keystroke delivered inside that window is discarded — the parent render
+  lands on top of the field's queued state. Real users cannot type that
+  fast; tests can, every time. `settings.test.tsx` has a `ready()` helper
+  that waits the screen out.
+
 ## Design artifacts
 
 | File | Status |

@@ -119,6 +119,21 @@ running it starts one for the length of the command rather than taking a
 different code path. Everything runs headless on Windows and Linux, and
 nothing under `core/` imports a UI toolkit.
 
+## Tests
+
+```bash
+pytest                    # 682 — core, daemon, CLI, backends
+cd web && npm test        # 47  — component tests for the browser client
+```
+
+The component tests exist because of a specific failure: the training form
+kept its settings in local state, so switching to the monitor and back
+unmounted it and silently reset every field — the dataset falling back to
+the first registered one, and a run training the wrong images without
+saying so. No Python test could have caught it. The bar for what goes in
+`web/tests/` is behaviour that only appears once a component is mounted,
+unmounted, re-rendered, or driven by a person.
+
 ## Ground rules
 
 1. **v1 keeps working.** No changes to `AI_Image_Trainer` except bug

@@ -19,6 +19,7 @@
  * doing.
  */
 
+import { cloneElement, isValidElement } from "preact";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { api, ApiError, isAbort } from "~/api/client";
 import type { Dataset, ModelInfo, RunPlan } from "~/api/types";
@@ -415,14 +416,29 @@ export function TrainForm({
             </Row>
             <Row label="Sample size">
               <span class="train__pair">
-                <Num value={form.sampleWidth} min={64} step={64} disabled={disabled} onInput={(v) => set("sampleWidth", v)} />
+                <Num
+                  label="Sample width"
+                  value={form.sampleWidth}
+                  min={64}
+                  step={64}
+                  disabled={disabled}
+                  onInput={(v) => set("sampleWidth", v)}
+                />
                 <span class="train__times">×</span>
-                <Num value={form.sampleHeight} min={64} step={64} disabled={disabled} onInput={(v) => set("sampleHeight", v)} />
+                <Num
+                  label="Sample height"
+                  value={form.sampleHeight}
+                  min={64}
+                  step={64}
+                  disabled={disabled}
+                  onInput={(v) => set("sampleHeight", v)}
+                />
               </span>
             </Row>
             <Row label="Seed" hint="a fixed seed makes samples comparable across checkpoints">
               <span class="train__pair">
                 <Num
+                  label="Seed"
                   value={form.seed}
                   disabled={disabled || form.randomSeed}
                   onInput={(v) => set("seed", v)}
@@ -495,6 +511,19 @@ function countHint(steps: number, every: number, noun: string): string {
 }
 
 
+/**
+ * One labelled row.
+ *
+ * The label is associated with its control rather than merely sitting next
+ * to it: clicking it focuses the field, a screen reader announces the two
+ * together, and a test can ask for "Epochs" instead of guessing at the
+ * third number input on the page. The id is derived from the label and the
+ * single element child is cloned to carry it, so no caller has to invent
+ * one and none can collide by forgetting to.
+ *
+ * Rows holding more than one control (a width and a height) cannot use a
+ * single association; those controls carry their own `aria-label`.
+ */
 function Row({
   label,
   hint,
@@ -504,30 +533,42 @@ function Row({
   hint?: string;
   children: preact.ComponentChildren;
 }) {
+  const id = `train-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const single = isValidElement(children) ? cloneElement(children, { id }) : children;
+
   return (
     <div class="field">
-      <label class="field__label">{label}</label>
-      <div class="field__control">{children}</div>
+      <label class="field__label" for={id}>
+        {label}
+      </label>
+      <div class="field__control">{single}</div>
       {hint ? <div class="field__hint">{hint}</div> : null}
     </div>
   );
 }
 
 function Num({
+  id,
   value,
   min,
   step,
+  label,
   disabled,
   onInput,
 }: {
+  id?: string;
   value: number;
   min?: number;
   step?: number;
+  /** Only for controls that share a row and cannot use its label. */
+  label?: string;
   disabled?: boolean;
   onInput(value: number): void;
 }) {
   return (
     <input
+      id={id}
+      aria-label={label}
       class="field__input"
       type="number"
       value={value}
@@ -545,11 +586,13 @@ function Num({
 }
 
 function Check({
+  id,
   checked,
   label,
   disabled,
   onChange,
 }: {
+  id?: string;
   checked: boolean;
   label: string;
   disabled?: boolean;
@@ -558,6 +601,7 @@ function Check({
   return (
     <label class="train__check">
       <input
+        id={id}
         type="checkbox"
         checked={checked}
         disabled={disabled}
