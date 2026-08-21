@@ -33,3 +33,6 @@ web/dist/
 
 # Training output: checkpoints are hundreds of megabytes each.
 Output/
+
+# Daemon output, written by serve.ps1 / serve.sh.
+logs/

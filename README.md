@@ -115,6 +115,25 @@ Output/<run>/<run>_000000400.safetensors
 Output/<run>/samples/
 ```
 
+## Running the daemon
+
+```powershell
+.\serve.ps1          # Windows - or double-click serve.cmd
+```
+
+```bash
+./serve.sh           # Linux, for a terminal you are watching
+```
+
+Runs in that window, so its lifetime is yours rather than an editor's or an
+agent session's. Training runs take hours and a daemon that dies mid-run
+leaves an interrupted job and a trainer still holding VRAM. Output is
+mirrored to `logs/daemon.log`, because "it crashed" is not a diagnosis and
+a window that closed took the traceback with it.
+
+For a node that should come back after a reboot, use the systemd unit in
+[deploy/](deploy/README.md) rather than this.
+
 ## Using it
 
 ```bash
