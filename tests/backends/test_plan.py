@@ -348,3 +348,40 @@ def test_the_final_step_is_not_lost_when_the_process_ends() -> None:
     parser.flush()
     losses = [e for e in collector.events if e.__class__.__name__ == "LossPoint"]
     assert [(e.step, e.value) for e in losses] == [(2, 0.42)]
+
+
+def test_the_offload_percentages_are_reachable() -> None:
+    """`layer_offloading: true` alone offloads everything - ai-toolkit
+    defaults both percentages to 1.0. On a card that is close rather than
+    hopeless, a partial offload is the difference between a slow run and
+    no run.
+    """
+    from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
+    from fluxkrea.core.backends.spec import RunSpec
+
+    backend = AIToolkitBackend()
+    spec = RunSpec(
+        model="flux2",
+        dataset="d",
+        extra={
+            "layer_offloading": True,
+            "layer_offloading_transformer_percent": 0.4,
+            "layer_offloading_text_encoder_percent": 1.0,
+        },
+    )
+    model_block = backend.build(spec)["config"]["process"][0]["model"]
+
+    assert model_block["layer_offloading"] is True
+    assert model_block["layer_offloading_transformer_percent"] == 0.4
+    assert model_block["layer_offloading_text_encoder_percent"] == 1.0
+
+
+def test_the_offload_percentages_are_absent_unless_asked_for() -> None:
+    """An unset knob stays unset, so ai-toolkit's own default applies."""
+    from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
+    from fluxkrea.core.backends.spec import RunSpec
+
+    backend = AIToolkitBackend()
+    model_block = backend.build(RunSpec(model="flux2", dataset="d"))["config"]["process"][0]["model"]
+
+    assert "layer_offloading_transformer_percent" not in model_block

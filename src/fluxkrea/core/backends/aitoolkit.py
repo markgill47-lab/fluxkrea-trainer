@@ -361,6 +361,18 @@ class AIToolkitBackend:
             # 30%, which v1 discovered and wrote down. Off unless asked for.
             "layer_offloading": bool(run.extra.get("layer_offloading", False)),
         }
+
+        # How much to offload, when it is on. ai-toolkit defaults both to
+        # 1.0 - the whole model on CPU, which works and crawls. On a card
+        # that is close rather than hopeless, a partial offload is the
+        # difference between a slow run and no run, so the dial is
+        # reachable rather than all-or-nothing.
+        for knob in (
+            "layer_offloading_transformer_percent",
+            "layer_offloading_text_encoder_percent",
+        ):
+            if (percent := run.extra.get(knob)) is not None:
+                block[knob] = float(percent)
         if model.arch:
             block["arch"] = model.arch
         if vae := run.extra.get("vae_path"):
