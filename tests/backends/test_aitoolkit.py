@@ -237,10 +237,38 @@ def test_paths_are_posix_in_the_config(backend: AIToolkitBackend) -> None:
 
 
 def test_no_toolkit_path_is_a_clear_error(tmp_path: Path) -> None:
-    bare = AIToolkitBackend(output_root=tmp_path)
+    bare = AIToolkitBackend(output_root=tmp_path, config_source="C:/somewhere/config.toml")
     assert bare.available() is False
     with pytest.raises(BackendError, match="aitoolkit_path is not set"):
         bare.runner_script()
+
+
+def test_the_error_names_the_file_the_setting_belongs_in(tmp_path: Path) -> None:
+    bare = AIToolkitBackend(output_root=tmp_path, config_source="C:/somewhere/config.toml")
+    with pytest.raises(BackendError, match=r"C:/somewhere/config\.toml"):
+        bare.runner_script()
+
+
+def test_a_daemon_with_no_config_says_so_instead(tmp_path: Path) -> None:
+    """The failure this exists for: a daemon that read no config at all.
+
+    Every backend path is empty, so the message reads exactly like a node
+    that was never set up - and it sends you to edit a config file that is
+    already correct and is not the one being read. It happened, and there
+    was nothing in the log to tell the two apart.
+    """
+    bare = AIToolkitBackend(output_root=tmp_path)
+    with pytest.raises(BackendError, match="loaded no config file at all"):
+        bare.runner_script()
+
+
+def test_the_config_source_comes_from_the_config(tmp_path: Path) -> None:
+    from fluxkrea.core.config import Config
+
+    config = Config()
+    config.source = tmp_path / "config.toml"
+    assert AIToolkitBackend.from_config(config).config_source == str(tmp_path / "config.toml")
+    assert AIToolkitBackend.from_config(Config()).config_source == ""
 
 
 def test_available_reports_whether_the_checkout_is_there(tmp_path: Path) -> None:

@@ -197,6 +197,7 @@ class AIToolkitBackend:
         model_paths: dict[str, str] | None = None,
         weight_roots: tuple[str, ...] = (),
         vram_gb: float | None = None,
+        config_source: str = "",
     ) -> None:
         self.toolkit_path = paths.expand(toolkit_path) if toolkit_path else None
         self.python_exe = python_exe
@@ -205,6 +206,12 @@ class AIToolkitBackend:
         self.weight_roots = tuple(weight_roots)
         #: Overrides detection, for a test or a node that knows better.
         self.vram_gb = vram_gb
+        #: The config file these paths came from, or "" if the daemon found
+        #: none. Carried only so a missing setting can say where to put it -
+        #: a node that loaded no config at all reports every backend path as
+        #: unset, and "aitoolkit_path is not set" then sends you to edit a
+        #: file that is already correct and is not being read.
+        self.config_source = config_source
         self._runner: ProcessRunner | None = None
         self._parser: OutputParser | None = None
         self._lock = threading.Lock()
@@ -220,6 +227,7 @@ class AIToolkitBackend:
             weight_roots=tuple(
                 str(p) for p in (getattr(config.backends, "comfyui_path", None),) if p
             ),
+            config_source=str(getattr(config, "source", "") or ""),
         )
 
     # -- dispatch ---------------------------------------------------------
@@ -239,10 +247,29 @@ class AIToolkitBackend:
     def runner_script(self) -> Path:
         if self.toolkit_path is None:
             raise BackendError(
-                "backends.aitoolkit_path is not set, so there is no ai-toolkit to run. "
-                "Point it at the checkout on this node."
+                "backends.aitoolkit_path is not set, so there is no ai-toolkit to "
+                "run. " + self._where_to_set()
             )
         return self.toolkit_path / RUNNER
+
+    def _where_to_set(self) -> str:
+        """Where to put the setting - and whether that is even the problem.
+
+        A daemon that loaded no config file reports every backend path as
+        unset, which reads identically to a node that was never configured.
+        It is not the same problem and the fix is not the same: the file is
+        usually right there and simply is not being read. Saying which file
+        was loaded, or that none was, is the difference between a two-minute
+        fix and an afternoon editing a file nothing opens.
+        """
+        if self.config_source:
+            return f"Set it in {self.config_source} and restart the daemon."
+        return (
+            "This daemon loaded no config file at all, so every backend "
+            "setting is empty - which is probably the actual problem rather "
+            "than a missing value. Check `fk config show`: it prints the file "
+            "it reads and where it looked."
+        )
 
     # -- config generation ------------------------------------------------
 

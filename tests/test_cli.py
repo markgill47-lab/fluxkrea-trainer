@@ -81,6 +81,43 @@ def test_config_init_then_show_reads_it_back(capsys: pytest.CaptureFixture[str])
     assert payload(capsys)["source"] == str(paths.config_file())
 
 
+def test_serve_says_which_config_it_loaded(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The first lines of a daemon's log answer "what is it running on".
+
+    A daemon that found no config file starts perfectly happily and then
+    reports every backend path as unset - hours later, from inside a
+    training submit, while the file on disk is correct and has never been
+    read. That happened, and nothing in the log distinguished it from a
+    node that was genuinely unconfigured.
+    """
+    import fluxkrea.daemon.app as app
+
+    monkeypatch.setattr(app, "serve", lambda config: None)
+
+    assert run("config", "init") == OK
+    capsys.readouterr()
+    assert run("serve") == OK
+    assert str(paths.config_file()) in capsys.readouterr().err
+
+
+def test_serve_says_when_it_found_no_config_at_all(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import fluxkrea.daemon.app as app
+
+    monkeypatch.setattr(app, "serve", lambda config: None)
+
+    assert not paths.config_file().is_file()
+    assert run("serve") == OK
+    printed = capsys.readouterr().err
+    assert "none found" in printed
+    # And where it looked, because the usual cause is that the file is
+    # somewhere else entirely rather than missing.
+    assert str(paths.config_file()) in printed
+
+
 def test_config_path_lists_every_location(capsys: pytest.CaptureFixture[str]) -> None:
     assert run("--json", "config", "path") == OK
     located = payload(capsys)

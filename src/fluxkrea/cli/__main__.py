@@ -499,6 +499,19 @@ def _run_serve(args: argparse.Namespace, config: Config, console: Console) -> in
         config.daemon.port = args.port
 
     console.write(f"serving on http://{config.daemon.host}:{config.daemon.port}")
+
+    # Which config this daemon is actually running on, in the first three
+    # lines of its log. A daemon that found no file starts perfectly happily
+    # and then reports every backend path as unset, hours later, from inside
+    # a training submit - by which point the file on disk is correct, the
+    # daemon has never read it, and nothing recorded that. It is one line at
+    # startup and it is the line that answers the question.
+    if config.source:
+        console.write(f"config    {config.source}")
+    else:
+        console.write(f"config    none found - looked in {paths.config_file()}")
+        console.write("          every backend and dataset setting is at its default")
+
     if config.daemon.host in ("127.0.0.1", "localhost", "::1"):
         console.write("reach it from a laptop with:")
         console.write(
