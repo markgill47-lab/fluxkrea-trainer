@@ -32,11 +32,19 @@ export function StatTiles({ job, loss }: Props) {
         tone={trend?.status === "degrading" ? "warn" : undefined}
       />
       <Tile label="eta" value={etaFor(job, step, total)} />
+      {/* "0 outliers" is a claim about the images, and it needs the backend
+        * to have said which image each step used. ai-toolkit does not, so
+        * a confident zero there was answering a question the data could
+        * not reach. An em dash and the reason instead. */}
       <Tile
         label="outliers"
-        value={loss ? String(loss.outliers.length) : "—"}
-        sub={loss?.outliers[0]?.image_id ?? ""}
-        tone={loss && loss.outliers.length ? "warn" : undefined}
+        value={loss?.attributed ? String(loss.outliers.length) : "—"}
+        sub={
+          loss && !loss.attributed
+            ? "no per-image loss from this trainer"
+            : (loss?.outliers[0]?.image_id ?? "")
+        }
+        tone={loss?.attributed && loss.outliers.length ? "warn" : undefined}
       />
     </div>
   );

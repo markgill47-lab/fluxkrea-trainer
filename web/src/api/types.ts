@@ -229,6 +229,9 @@ export interface LossPayload {
   latest: number | null;
   latest_ema: number | null;
   trend: Trend;
+  /** Did the backend say which image each step used? Without it there are
+   *  no outliers to find, which is not the same as finding none. */
+  attributed: boolean;
   outliers: Outlier[];
 }
 

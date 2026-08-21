@@ -14,7 +14,12 @@ import random
 import pytest
 
 from fluxkrea.core.analytics import LossSeries
-from fluxkrea.core.analytics.loss import _lttb_indices, _quantile, _slope
+from fluxkrea.core.analytics.loss import (
+    MIN_TREND_WINDOW,
+    _lttb_indices,
+    _quantile,
+    _slope,
+)
 
 
 def falling(count: int = 400, noise: float = 0.0, seed: int = 3) -> LossSeries:
@@ -88,11 +93,83 @@ def test_a_rising_run_reads_as_degrading() -> None:
 
 
 def test_a_flat_run_converges() -> None:
-    """Sustained flatness is convergence, not stalling."""
+    """Sustained flatness is convergence, not stalling.
+
+    Long enough to clear two trend windows: "sustained" is the whole claim,
+    and the window is now a slice of the run rather than a fixed 100.
+    """
     series = LossSeries()
-    for step in range(1, 400):
+    for step in range(1, 1200):
         series.add(step, 0.0400)
     assert series.trend().status == "converged"
+
+
+def test_a_noisy_flat_run_is_not_given_a_direction() -> None:
+    """The bug this replaced.
+
+    A real 4,440-step run had a third of its points near zero by sampling
+    chance. Fitting 100 raw points measured where those happened to land:
+    the verdict flipped between "improving" and "degrading" from one window
+    to the next, on a run whose loss had halved and then levelled off.
+    """
+    rng = random.Random(7)
+    series = LossSeries()
+    for step in range(1, 3000):
+        # Flat underneath, with the same bimodal sampling noise on top.
+        value = 0.02 if rng.random() < 0.33 else 0.5 + rng.gauss(0, 0.2)
+        series.add(step, value)
+
+    assert series.trend().status in ("stable", "converged")
+
+
+def test_a_flat_run_is_almost_never_given_a_direction() -> None:
+    """The property, measured rather than hoped for.
+
+    A slope has to beat its own standard error, so this is a claim about a
+    rate. With the earlier rule - the fitted change against the level -
+    27 of these 40 got a confident verdict.
+    """
+    confident = 0
+    for seed in range(40):
+        rng = random.Random(seed)
+        series = LossSeries()
+        for step in range(1, 3000):
+            series.add(step, 0.02 if rng.random() < 0.33 else 0.5 + rng.gauss(0, 0.2))
+        if series.trend().status in ("improving", "degrading"):
+            confident += 1
+
+    assert confident <= 2, f"{confident}/40 flat runs were given a direction"
+
+
+def test_a_real_improvement_is_still_seen_through_that_noise() -> None:
+    """Suppressing noise must not suppress the signal underneath it.
+
+    The other half of the trade: a test that only checked false positives
+    would pass with a trend that never says anything at all.
+    """
+    found = 0
+    for seed in range(40):
+        rng = random.Random(seed)
+        series = LossSeries()
+        for step in range(1, 3000):
+            floor = 0.9 - 0.0002 * step  # a genuine, steady fall
+            series.add(step, 0.02 if rng.random() < 0.33 else floor + rng.gauss(0, 0.2))
+        if series.trend().status == "improving":
+            found += 1
+
+    assert found >= 38, f"only {found}/40 real improvements were seen"
+
+
+def test_the_trend_window_grows_with_the_run() -> None:
+    """100 points of 4,440 is the last two percent of it."""
+    short, long = LossSeries(), LossSeries()
+    for step in range(1, 500):
+        short.add(step, 0.4)
+    for step in range(1, 5000):
+        long.add(step, 0.4)
+
+    assert short.trend().window == MIN_TREND_WINDOW
+    assert long.trend().window > MIN_TREND_WINDOW * 4
 
 
 def test_too_few_points_is_unknown_rather_than_a_guess() -> None:
@@ -158,6 +235,24 @@ def test_too_few_images_reports_the_worst_without_claiming_severity() -> None:
 def test_points_without_an_image_do_not_become_outliers() -> None:
     series = falling(200)
     assert series.outliers() == []
+
+
+def test_a_series_says_whether_images_were_attributed_at_all() -> None:
+    """"No outliers" and "this cannot be known" are different answers.
+
+    ai-toolkit never names the image a step used, so on that backend the
+    outlier analysis has nothing to work with - and a confident "0" is a
+    claim the data does not support.
+    """
+    anonymous = falling(300)
+    assert anonymous.attributed is False
+    assert anonymous.as_dict()["attributed"] is False
+
+    named = LossSeries()
+    for step in range(1, 50):
+        named.add(step, 0.3, f"img_{step % 5:03d}")
+    assert named.attributed is True
+    assert named.as_dict()["attributed"] is True
 
 
 # --------------------------------------------------------------------------

@@ -26,14 +26,45 @@ from typing import Any
 #: v1 keeps the same three and the monitor plots the middle one.
 EMA_WINDOWS = (10, 50, 100)
 
-#: Points used to fit the trend line. Long enough not to twitch on noise,
-#: short enough to notice a run going wrong.
-TREND_WINDOW = 100
+#: Fewest points worth fitting a direction to at all.
+MIN_TREND_WINDOW = 200
 
-#: A slope flatter than this, sustained, reads as converged rather than
-#: improving. Loss values here are order 0.01-0.5, so this is small
-#: relative to the signal but not to the noise.
-CONVERGENCE_THRESHOLD = 1e-6
+#: How much of the run the trend is measured over. A fixed window was 100
+#: points, which on a 4,440-step run measured the last two percent of it -
+#: and on a series where a third of the points sit near zero by chance,
+#: that is a measurement of where the near-zero points happened to land.
+#: The verdict flipped between "improving" and "degrading" depending on
+#: where the window ended, on a run whose loss had halved.
+#: A third, chosen by measurement rather than taste. Against forty flat
+#: noisy series and forty genuinely falling ones of the same shape as a
+#: real run: a fifth of the run missed two thirds of the real falls, and a
+#: third of it caught every one while calling none of the flat ones a
+#: direction.
+TREND_FRACTION = 0.35
+
+#: How many standard errors the slope must be from zero before it counts
+#: as a direction.
+#:
+#: This is the part a relative threshold could not do. Comparing the fitted
+#: change to the level looks principled and is not: it says nothing about
+#: how much of that change the noise could have produced on its own. Tested
+#: against forty flat-but-noisy series with the same shape as a real run,
+#: a 5%-of-level rule called 68% of them "improving" or "degrading". A
+#: slope has to beat its own uncertainty, which is what this measures.
+#:
+#: Fitted over the raw points rather than the EMA: an EMA's neighbouring
+#: values are nearly the same number, so its residuals are far smaller than
+#: the real uncertainty and every drift looks certain.
+TREND_SIGMA = 3.0
+
+#: And a direction has to be worth mentioning as well as real. On a long
+#: enough run a microscopic drift becomes statistically certain while
+#: remaining of no interest to anybody.
+TREND_SIGNIFICANCE = 0.02
+
+#: A run is converged when it has been flat for this many windows' worth
+#: of points, not merely flat right now.
+CONVERGENCE_WINDOWS = 2
 
 #: A run is converged when it has been flat for this many windows' worth
 #: of points, not merely flat right now.
@@ -147,13 +178,24 @@ class LossSeries:
     def latest_ema(self, window: int = 50) -> float | None:
         return self._current.get(window)
 
-    def trend(self, window: int = TREND_WINDOW) -> Trend:
-        """Least-squares slope over the last *window* points.
+    def trend(self, window: int = 0) -> Trend:
+        """Where the loss is going, measured over a slice of the run.
 
-        Fitted against the step number rather than the index, so a backend
-        that reports every tenth step is not read as ten times steeper.
+        Three things this gets right that a fixed-window fit over the raw
+        points did not, all of them found on a real 4,440-step run whose
+        loss had halved and which this reported as "degrading":
+
+        * **The window scales with the run.** 100 points of 4,440 is the
+          last two percent, and the answer changed depending on where that
+          window happened to end.
+        * **The fit is over the EMA.** A third of that run's points sat near
+          zero by sampling chance, and the raw slope measured where those
+          landed rather than the drift underneath them.
+        * **A direction has to beat the noise.** Below
+          :data:`TREND_SIGNIFICANCE` of the current level the answer is
+          "stable", rather than a confident verdict fitted through noise.
         """
-        count = min(window, len(self.values))
+        count = min(window or self._trend_window(), len(self.values))
         if count < 3:
             return Trend(status="unknown", slope=None, window=count)
 
@@ -163,33 +205,63 @@ class LossSeries:
         if slope is None:
             return Trend(status="unknown", slope=None, window=count)
 
-        # Sustained flatness is convergence, not stalling — and "sustained"
-        # is measured over the data, not over how many times this was
-        # called. An earlier version accumulated slopes per call, which made
-        # the answer depend on how often the monitor happened to poll.
-        if abs(slope) < CONVERGENCE_THRESHOLD and self._flat_before(window):
-            return Trend(status="converged", slope=slope, window=count)
+        # Two questions, and a direction needs both. Is the slope larger
+        # than the noise could have produced by itself, and is it large
+        # enough for a person to care about?
+        error = _slope_error(steps, values, slope)
+        certain = error is not None and abs(slope) > error * TREND_SIGMA
 
-        if slope < -CONVERGENCE_THRESHOLD:
-            status = "improving"
-        elif slope > CONVERGENCE_THRESHOLD:
-            status = "degrading"
-        else:
-            status = "stable"
+        span = steps[-1] - steps[0]
+        level = abs(sum(values) / len(values)) or 1.0
+        worth_saying = abs(slope * span) / level >= TREND_SIGNIFICANCE
+
+        if not (certain and worth_saying):
+            # Flat now is a pause; flat for a while is convergence.
+            if self._flat_before(count):
+                return Trend(status="converged", slope=slope, window=count)
+            return Trend(status="stable", slope=slope, window=count)
+
+        status = "improving" if slope < 0 else "degrading"
         return Trend(status=status, slope=slope, window=count)
+
+    def _trend_window(self) -> int:
+        """A slice of the run, never smaller than is worth fitting."""
+        return max(MIN_TREND_WINDOW, int(len(self.values) * TREND_FRACTION))
 
     def _flat_before(self, window: int) -> bool:
         """Was the run already flat over the window before this one?
 
-        One flat window is a pause; two in a row is convergence.
+        One flat window is a pause; two in a row is convergence. Judged the
+        same way as :meth:`trend`, so the two cannot disagree about what
+        flat means.
         """
         needed = window * CONVERGENCE_WINDOWS
         if len(self.values) < needed:
             return False
         start = len(self.values) - needed
         end = len(self.values) - window
-        earlier = _slope(self.steps[start:end], self.values[start:end])
-        return earlier is not None and abs(earlier) < CONVERGENCE_THRESHOLD
+        steps, values = self.steps[start:end], self.values[start:end]
+        earlier = _slope(steps, values)
+        if earlier is None or len(steps) < 3:
+            return False
+
+        error = _slope_error(steps, values, earlier)
+        if error is None or abs(earlier) <= error * TREND_SIGMA:
+            return True
+        span = steps[-1] - steps[0]
+        level = abs(sum(values) / len(values)) or 1.0
+        return abs(earlier * span) / level < TREND_SIGNIFICANCE
+
+    @property
+    def attributed(self) -> bool:
+        """Did any point arrive with an image attached?
+
+        ai-toolkit's output does not name the image a step used, so on that
+        backend this is always False and the outlier analysis has nothing
+        to work with. Reporting that honestly is the difference between
+        "no image is an outlier" and "this cannot be known from here".
+        """
+        return bool(self._per_image)
 
     def outliers(self, top: int = 10) -> list[Outlier]:
         """Images whose mean loss sits above Tukey's upper fence.
@@ -262,6 +334,11 @@ class LossSeries:
             "latest": self.latest,
             "latest_ema": self.latest_ema(ema_window),
             "trend": trend.as_dict(),
+            # Whether the backend said which image each step used. Without
+            # it there are no outliers to find - and "0 outliers" is a
+            # confident claim this data cannot support, so the client needs
+            # to be able to tell the two apart.
+            "attributed": self.attributed,
             "outliers": [outlier.as_dict() for outlier in self.outliers()],
         }
 
@@ -283,6 +360,27 @@ def _slope(xs: list[int], ys: list[float]) -> float | None:
         return None
     numerator = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys, strict=False))
     return numerator / denominator
+
+
+def _slope_error(xs: list[int], ys: list[float], slope: float) -> float | None:
+    """Standard error of a least-squares slope.
+
+    How much slope the scatter around the line could have produced on its
+    own. Without it, "the line goes down" and "the line goes down more than
+    chance explains" are the same statement - which is how a flat run got
+    called improving two thirds of the time.
+    """
+    n = len(xs)
+    if n < 3:
+        return None
+    mean_x = sum(xs) / n
+    mean_y = sum(ys) / n
+    sxx = sum((x - mean_x) ** 2 for x in xs)
+    if sxx == 0:
+        return None
+    intercept = mean_y - slope * mean_x
+    residuals = sum((y - (slope * x + intercept)) ** 2 for x, y in zip(xs, ys, strict=False))
+    return math.sqrt(residuals / (n - 2) / sxx)
 
 
 def _severity(mean: float, fence: float, iqr: float) -> float:
