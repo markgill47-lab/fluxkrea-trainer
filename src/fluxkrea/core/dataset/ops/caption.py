@@ -17,6 +17,9 @@ Three behaviours worth calling out, all of them lessons from watching a
 * **A refusal is a per-image result, not a crash.** Vision models decline
   ordinary reference photography often enough that it has to be an
   outcome the batch reports and carries on from.
+* **The captioner is closed when the run ends.** JoyCaption holds 9-17GB
+  of VRAM on the same card that runs training, and a finished caption run
+  still holding it is VRAM the next job does not get.
 """
 
 from __future__ import annotations
@@ -111,6 +114,45 @@ def caption(
     emit = safe(emit)
     source = paths.expand(root)
     result = CaptionResult(root=source)
+    try:
+        return _caption(
+            source,
+            captioner,
+            result,
+            items=items,
+            prompt=prompt,
+            prefix=prefix,
+            overwrite=overwrite,
+            max_tokens=max_tokens,
+            extensions=extensions,
+            caption_ext=caption_ext,
+            abort_after=abort_after,
+            emit=emit,
+            cancel=cancel,
+        )
+    finally:
+        # An in-process backend holds a model; a remote one does nothing
+        # here. Either way the run is over and the resources are not ours
+        # to keep.
+        captioner.close()
+
+
+def _caption(
+    source: Path,
+    captioner: Captioner,
+    result: CaptionResult,
+    *,
+    items: Sequence[DatasetItem] | None,
+    prompt: str,
+    prefix: str,
+    overwrite: bool,
+    max_tokens: int,
+    extensions: Iterable[str] | None,
+    caption_ext: str,
+    abort_after: int,
+    emit: Emitter,
+    cancel: threading.Event | None,
+) -> CaptionResult:
 
     selected = list(items) if items is not None else scan(
         source, extensions=extensions, caption_ext=caption_ext, cancel=cancel

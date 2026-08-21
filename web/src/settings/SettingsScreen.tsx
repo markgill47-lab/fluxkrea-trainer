@@ -98,8 +98,9 @@ export function SettingsScreen({ onError }: { onError(message: string | null): v
   }
 
   const captioner = config.captioner;
-  const isOllama = captioner.provider === "ollama";
+  const provider = captioner.provider;
   const claudeKey = secrets.find((entry) => entry.name === "claude");
+  const missing = captioners.some((entry) => entry.name === provider && !entry.available);
 
   return (
     <div class="settings">
@@ -116,23 +117,41 @@ export function SettingsScreen({ onError }: { onError(message: string | null): v
         <section class="panel">
           <h2 class="panel__title">Captioning</h2>
           <p class="panel__note">
-            Ollama runs on this node and sends nothing anywhere. Claude writes better
-            captions and sends every image to Anthropic.
+            JoyCaption and Ollama both run on this node and send nothing anywhere;
+            JoyCaption is fine-tuned for training captions and will not refuse a
+            subject. Claude writes the best captions and sends every image to
+            Anthropic.
           </p>
 
           <Field
             label="Backend"
             hint="which model writes the captions"
             value={captioner.provider}
+            // Selectable even when not installed. The node this is configured
+            // on is often not the node it is installed on yet, and "test
+            // connection" already says exactly what is missing — a disabled
+            // option would just make the setting unreachable until then.
             options={captioners.map((entry) => ({
               value: entry.name,
-              label: entry.available ? entry.label : `${entry.label} — not installed`,
-              disabled: !entry.available,
+              label: entry.available ? entry.label : `${entry.label} — needs installing`,
             }))}
             onSave={(value) => save("captioner.provider", value)}
           />
 
-          {isOllama ? (
+          {missing && (
+            <div class="field field--static">
+              <label class="field__label" />
+              <div class="field__control">
+                <span class="chip chip--warn">not installed on this node</span>
+              </div>
+              <div class="field__hint">
+                Run the test below — it names the package to install. Captioning
+                will fail until then, and say so before touching an image.
+              </div>
+            </div>
+          )}
+
+          {provider === "ollama" ? (
             <>
               <Field
                 label="Ollama URL"
@@ -149,6 +168,25 @@ export function SettingsScreen({ onError }: { onError(message: string | null): v
                 }
                 value={captioner.ollama_model}
                 onSave={(value) => save("captioner.ollama_model", value)}
+              />
+            </>
+          ) : provider === "joycaption" ? (
+            <>
+              <Field
+                label="Model"
+                hint="a HuggingFace repo id — not an Ollama model, so it never appears in `ollama list`. About 16GB, cached under ~/.cache/huggingface."
+                value={captioner.joycaption_model}
+                onSave={(value) => save("captioner.joycaption_model", value)}
+              />
+              <Field
+                label="Precision"
+                hint="int8 uses about 9GB of VRAM, bf16 about 17GB — on a card that also runs training, that is the whole decision"
+                value={String(captioner.joycaption_quantize)}
+                options={[
+                  { value: "true", label: "int8 — quantized, ~9GB" },
+                  { value: "false", label: "bf16 — full, ~17GB" },
+                ]}
+                onSave={(value) => save("captioner.joycaption_quantize", value === "true")}
               />
             </>
           ) : (

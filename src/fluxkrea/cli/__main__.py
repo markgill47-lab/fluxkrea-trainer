@@ -153,7 +153,7 @@ def _add_node(commands: Any, common: argparse.ArgumentParser) -> None:
                                help="which captioners a node has, and whether one answers")
     probe.add_argument("--test", action="store_true",
                        help="actually probe the configured captioner - costs a round trip")
-    probe.add_argument("--provider", choices=["ollama", "claude"],
+    probe.add_argument("--provider", choices=["ollama", "joycaption", "claude"],
                        help="probe this one instead of the configured one")
 
 
@@ -201,7 +201,7 @@ def _add_dataset(commands: Any, common: argparse.ArgumentParser) -> None:
     augment_cmd.add_argument("--output", help="write to another folder instead of in place")
 
     caption_cmd = with_target("caption", "write a .txt caption beside every image")
-    caption_cmd.add_argument("--provider", choices=["ollama", "claude"],
+    caption_cmd.add_argument("--provider", choices=["ollama", "joycaption", "claude"],
                              help="captioner to use; default from config")
     caption_cmd.add_argument("--model", help="vision model; default from config")
     # not --url: that is the daemon's address, on every subcommand.

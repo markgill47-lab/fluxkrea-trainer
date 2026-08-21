@@ -247,6 +247,8 @@ export interface CaptionerConfig {
   provider: string;
   ollama_url: string;
   ollama_model: string;
+  joycaption_model: string;
+  joycaption_quantize: boolean;
   claude_model: string;
   prompt: string;
   prefix: string;

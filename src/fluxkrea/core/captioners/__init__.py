@@ -6,9 +6,12 @@ factory" — so the shape survives the rewrite. What changes is what sits
 behind it: no ``requests``, and failures returned instead of raised (see
 :mod:`~fluxkrea.core.captioners.base`).
 
-``ollama`` is the default. It is local, needs no key, and sends nothing
-anywhere — which for a lab that trains on its own reference photography
-is the difference between a tool it can use and one it cannot.
+Two of the three are local. ``ollama`` is the default because it needs
+nothing installed into this process; ``joycaption`` is the one this
+project was built around — a LLaVA model loaded in-process, fine-tuned
+for training captions and unwilling to refuse ordinary reference
+photography. ``claude`` writes the best captions and is the only one that
+sends an image anywhere.
 """
 
 from __future__ import annotations
@@ -33,6 +36,10 @@ def get_captioner(name: str, **options: Any) -> Captioner:
         from .ollama import OllamaCaptioner
 
         return OllamaCaptioner(**options)
+    if key == "joycaption":
+        from .joycaption import JoyCaptionCaptioner
+
+        return JoyCaptionCaptioner(**options)
     if key == "claude":
         from .claude import ClaudeCaptioner
 
@@ -54,6 +61,11 @@ def from_config(settings: Any, **overrides: Any) -> Captioner:
             "model": settings.ollama_model,
             "timeout": settings.timeout,
         }
+    elif key == "joycaption":
+        options = {
+            "model": settings.joycaption_model,
+            "quantize": settings.joycaption_quantize,
+        }
     elif key == "claude":
         options = {"model": settings.claude_model, "timeout": settings.timeout}
     else:
@@ -62,7 +74,7 @@ def from_config(settings: Any, **overrides: Any) -> Captioner:
 
 
 def names() -> tuple[str, ...]:
-    return ("ollama", "claude")
+    return ("ollama", "joycaption", "claude")
 
 
 def available() -> dict[str, bool]:
@@ -73,21 +85,38 @@ def available() -> dict[str, bool]:
     description should not do either. ``Captioner.test()`` answers that,
     when the operator asks it to.
     """
+    return {
+        "ollama": True,
+        "joycaption": _importable("transformers") and _importable("torch"),
+        "claude": _importable("anthropic"),
+    }
+
+
+def _importable(module: str) -> bool:
+    """Is the package there, without paying to import it?
+
+    ``find_spec`` reads the metadata; importing torch to find out costs
+    seconds and a CUDA context, on an endpoint that describes a node.
+    """
+    from importlib.util import find_spec
+
     try:
-        import anthropic  # noqa: F401
-    except ImportError:
-        claude = False
-    else:
-        claude = True
-    return {"ollama": True, "claude": claude}
+        return find_spec(module) is not None
+    except (ImportError, ValueError):
+        return False
 
 
 def labels() -> dict[str, str]:
     """Backend name to display label, for the settings UI."""
     from .claude import ClaudeCaptioner
+    from .joycaption import JoyCaptionCaptioner
     from .ollama import OllamaCaptioner
 
-    return {OllamaCaptioner.name: OllamaCaptioner.label, "claude": ClaudeCaptioner.label}
+    return {
+        OllamaCaptioner.name: OllamaCaptioner.label,
+        JoyCaptionCaptioner.name: JoyCaptionCaptioner.label,
+        ClaudeCaptioner.name: ClaudeCaptioner.label,
+    }
 
 
 __all__ = [

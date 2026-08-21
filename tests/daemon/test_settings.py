@@ -156,7 +156,7 @@ def test_the_locked_settings_are_advertised(api: httpx.Client) -> None:
 def test_the_captioner_list_names_what_is_configured(api: httpx.Client) -> None:
     body = api.get("/captioners").json()
     names = {c["name"] for c in body["captioners"]}
-    assert {"ollama", "claude"} <= names
+    assert {"ollama", "joycaption", "claude"} <= names
     assert body["configured"] == "ollama"
     assert all("label" in c and "available" in c for c in body["captioners"])
 
@@ -178,7 +178,7 @@ def test_probing_a_stopped_backend_is_an_answer_not_an_error(api: httpx.Client) 
 
 
 def test_probing_an_unknown_provider_says_which_exist(api: httpx.Client) -> None:
-    body = api.post("/captioners/test", json={"provider": "joycaption"}).json()
+    body = api.post("/captioners/test", json={"provider": "blip2"}).json()
     assert body["ok"] is False
     assert "ollama" in body["message"]
 

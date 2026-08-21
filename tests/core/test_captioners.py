@@ -22,6 +22,7 @@ from fluxkrea.core.captioners import (
     labels,
     names,
 )
+from fluxkrea.core.captioners.joycaption import JoyCaptionCaptioner
 from fluxkrea.core.captioners.ollama import OllamaCaptioner
 from fluxkrea.core.config import CaptionerConfig
 from fluxkrea.core.dataset.ops.caption import PREAMBLES, CaptionResult, _clean, caption
@@ -74,8 +75,36 @@ def test_the_registry_builds_by_name() -> None:
 
 def test_an_unknown_captioner_names_the_ones_that_exist() -> None:
     with pytest.raises(CaptionerError) as raised:
-        get_captioner("joycaption")
+        get_captioner("blip2")
     assert "ollama" in str(raised.value)
+    assert "joycaption" in str(raised.value)
+
+
+def test_joycaption_is_registered_and_configured_from_its_own_fields() -> None:
+    """The model this project was built around, and not an Ollama model."""
+    built = from_config(
+        CaptionerConfig(
+            provider="joycaption",
+            joycaption_model="fancyfeast/llama-joycaption-beta-one-hf-llava",
+            joycaption_quantize=True,
+        )
+    )
+    assert isinstance(built, JoyCaptionCaptioner)
+    assert built.model_id.startswith("fancyfeast/")
+    assert built.quantize is True
+
+
+def test_joycaption_says_what_to_install_rather_than_raising() -> None:
+    """A missing torch is an answer to `test()`, not an exception."""
+    ok, message = JoyCaptionCaptioner().test()
+    if not ok:
+        # On a node without the extra installed - which is most of them.
+        assert "joycaption" in message or "HuggingFace cache" in message
+
+
+def test_joycaption_closes_cleanly_when_it_never_loaded() -> None:
+    """close() runs after every batch, including ones that never started."""
+    JoyCaptionCaptioner().close()  # must not raise
 
 
 def test_availability_is_reported_without_probing_anything() -> None:
@@ -258,6 +287,19 @@ def test_the_prompt_reaches_the_backend(dataset: Path) -> None:
     backend = Fake()
     caption(dataset, backend, prompt="describe the lighting")
     assert set(backend.prompts) == {"describe the lighting"}
+
+
+def test_the_backend_is_closed_when_the_run_ends(dataset: Path) -> None:
+    """JoyCaption holds VRAM on the card that also runs training."""
+    backend = Fake()
+    caption(dataset, backend)
+    assert backend.closed
+
+
+def test_the_backend_is_closed_even_when_the_run_fails(dataset: Path) -> None:
+    backend = Fake(ready=False)
+    caption(dataset, backend)
+    assert backend.closed
 
 
 def test_the_result_serialises_for_the_api(dataset: Path) -> None:

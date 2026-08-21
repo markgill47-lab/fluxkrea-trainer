@@ -118,14 +118,20 @@ class CaptionerConfig:
     photography is the difference between a usable tool and an unusable
     one. ``claude`` writes better captions and is one setting away.
 
-    The two providers keep separate model fields on purpose: switching
-    provider and back should not lose the model you had configured, which
-    a single shared ``model`` field guarantees it would.
+    Each provider keeps its own model field on purpose: switching provider
+    and back should not lose the model you had configured, which a single
+    shared ``model`` field guarantees it would.
     """
 
     provider: str = "ollama"
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2-vision"
+    #: A HuggingFace repo id, not an Ollama model - it will never appear
+    #: in `ollama list`. Cached under ~/.cache/huggingface.
+    joycaption_model: str = "fancyfeast/llama-joycaption-beta-one-hf-llava"
+    #: int8 rather than bf16: ~9GB instead of ~17GB, which is the
+    #: difference between captioning beside a training job and not.
+    joycaption_quantize: bool = True
     claude_model: str = "claude-opus-5"
     #: Empty means the built-in prompt (``captioners.DEFAULT_PROMPT``).
     prompt: str = ""

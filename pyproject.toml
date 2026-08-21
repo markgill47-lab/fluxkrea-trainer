@@ -30,6 +30,17 @@ daemon = [
     "sse-starlette>=2.1",
 ]
 keyring = ["keyring>=25.0"]
+# JoyCaption runs in-process, so it drags torch onto the node. Deliberately
+# not a default: most nodes caption with Ollama or not at all, and this is
+# several gigabytes of wheels before the 16GB of weights.
+joycaption = [
+    "torch>=2.4",
+    "transformers>=4.45",
+    "accelerate>=0.34",
+    "optimum-quanto>=0.2.4",
+    "huggingface-hub>=0.25",
+]
+claude = ["anthropic>=0.40"]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
