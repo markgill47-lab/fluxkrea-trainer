@@ -16,11 +16,12 @@ from fastapi import APIRouter, Body, Depends, Query, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
 from ...core import paths
-from ...core.dataset import archive, manifest, validate
+from ...core.dataset import archive, manifest, thumbs, validate
 from ...core.dataset.boxes import BoxStore
 from ...core.dataset.ops import augment, detect_faces, export_masks, plan_rename, resize
 from ...core.dataset.ops.rename import execute as execute_rename
 from ...core.detect import MANUAL, Box, DetectorError, get_detector
+from ...core.imaging import ImageError
 from ...core.events import Emitter, Log
 from ..security import Denied
 from ..state import State
@@ -89,6 +90,9 @@ def items(dataset_id: str, state: State = Depends(get_state)) -> dict[str, Any]:
                 "quality": item.quality,
                 "boxes": len(boxes.boxes(item.image.name)),
                 "reviewed": boxes.is_reviewed(item.image.name),
+                # Changes when the file does, so a thumbnail URL carrying
+                # it can be cached immutably (doc 10).
+                "token": thumbs.token_for(item.image),
             }
             for item in found
         ],
@@ -118,6 +122,38 @@ def validate_dataset(
 @router.get("/{dataset_id}/items/{stem}/image")
 def item_image(dataset_id: str, stem: str, state: State = Depends(get_state)) -> FileResponse:
     return _file(state.item(dataset_id, stem).image)
+
+
+@router.get("/{dataset_id}/items/{stem}/thumb")
+def item_thumb(
+    dataset_id: str,
+    stem: str,
+    size: int = Query(default=160),
+    v: str | None = Query(default=None, description="cache token from the items listing"),
+    state: State = Depends(get_state),
+) -> FileResponse:
+    """A cached thumbnail. The client never gets a full image for a cell.
+
+    When the caller passes the item's token as ``v`` the response is
+    immutable: a changed file yields a different token and therefore a
+    different URL, so the browser cache busts itself and nothing here has
+    to track invalidation.
+    """
+    item = state.item(dataset_id, stem)
+    if size not in thumbs.SIZES:
+        raise Denied(f"thumbnail size must be one of {thumbs.SIZES}", status=400)
+
+    try:
+        target = thumbs.build(item.image, dataset_id, stem, size)
+    except (ImageError, OSError) as exc:
+        raise Denied(f"cannot render a thumbnail for {stem}: {exc}", status=404) from exc
+
+    headers = (
+        {"cache-control": "public, max-age=31536000, immutable"}
+        if v
+        else {"cache-control": "no-cache"}
+    )
+    return FileResponse(target, media_type="image/webp", headers=headers)
 
 
 @router.get("/{dataset_id}/items/{stem}/mask")

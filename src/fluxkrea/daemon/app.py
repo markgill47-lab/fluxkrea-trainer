@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse
 
 from .. import __version__
 from ..core.config import Config, load
+from . import web
 from .routes import datasets, jobs, node, tasks
 from .security import Denied, check_token, extract_token
 from .state import State
@@ -73,8 +74,8 @@ def create_app(config: Config | None = None, state: State | None = None) -> Fast
     for router in (node.router, datasets.router, tasks.router, jobs.router):
         app.include_router(router, prefix=API)
 
-    @app.get("/")
-    def root() -> dict[str, Any]:
+    @app.get("/api", include_in_schema=False)
+    def identity() -> dict[str, Any]:
         return {
             "name": "fluxkrea",
             "version": __version__,
@@ -83,6 +84,24 @@ def create_app(config: Config | None = None, state: State | None = None) -> Fast
             "docs": "/docs",
         }
 
+    # The client arrives with the daemon (doc 02), so it is served last -
+    # after every API route, because its catch-all would otherwise swallow
+    # them. With no build present this is a no-op and `/` stays JSON.
+    served = web.mount(app, API)
+    if served is None:
+
+        @app.get("/", include_in_schema=False)
+        def root() -> dict[str, Any]:
+            return {
+                "name": "fluxkrea",
+                "version": __version__,
+                "node": resolved.node_name,
+                "api": API,
+                "docs": "/docs",
+                "client": "not built - run `npm run build` in web/",
+            }
+
+    app.state.web_root = served
     return app
 
 
