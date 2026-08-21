@@ -356,3 +356,49 @@ def test_job_endpoints(api: httpx.Client) -> None:
     cancelled = api.delete(f"/jobs/{job_id}").json()
     assert cancelled["dequeued"] is True
     assert api.delete(f"/jobs/{job_id}").status_code == 409
+
+# --------------------------------------------------------------------------
+# which backend a job actually runs on
+# --------------------------------------------------------------------------
+
+
+def test_a_job_uses_this_node_s_backend_not_the_shared_registry(state) -> None:
+    """The registry is process-global; the node's own backend is not.
+
+    ``core.backends`` keys one dict by backend name, so the last thing to
+    call ``register`` owns it for the whole process. An unconfigured
+    instance winning that race is silent: it knows every model, so dispatch
+    succeeds, and the run then reports `aitoolkit_path is not set` on a node
+    whose config.toml has it set. A job resolves through the state, which
+    nothing else can overwrite.
+    """
+    from fluxkrea.core.backends import register, registered
+    from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
+
+    configured = state.configured_backends["aitoolkit"]
+    assert state.backend_for("flux2-klein-9b") is configured
+
+    # Something else registers a bare instance afterwards - an import, a
+    # second State, a test. The registry now points at it.
+    intruder = AIToolkitBackend()
+    register(intruder)
+    try:
+        assert registered()["aitoolkit"] is intruder
+        assert state.backend_for("flux2-klein-9b") is configured
+    finally:
+        register(configured)
+
+
+def test_the_node_report_describes_the_backend_a_job_would_use(state) -> None:
+    # "ready: false" while a run uses a different, working instance - or the
+    # reverse - is worse than either answer on its own.
+    from fluxkrea.core.backends import register
+    from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
+
+    configured = state.configured_backends["aitoolkit"]
+    register(AIToolkitBackend())
+    try:
+        reported = state.backends()["aitoolkit"]["ready"]
+        assert reported is bool(configured.available())
+    finally:
+        register(configured)

@@ -41,6 +41,13 @@ class State:
     tasks: TaskRunner = field(default=None)  # type: ignore[assignment]
     jobs: JobQueue = field(default=None)  # type: ignore[assignment]
     started: float = field(default_factory=time.time)
+    #: The backends this node configured, by name. The core registry is a
+    #: module global shared by every State in the process, so whichever one
+    #: attached last owns it - and an unconfigured instance winning that
+    #: race is invisible until a run reports every backend path as unset on
+    #: a node whose config.toml has them all. A job resolves its backend
+    #: from here, which cannot be overwritten from somewhere else.
+    configured_backends: dict[str, Any] = field(default_factory=dict)
     #: Latched: once the code has changed under a running daemon, it has.
     _stale: bool = field(default=False, compare=False)
 
@@ -108,8 +115,9 @@ class State:
         """
         from ..core.backends import registered
 
+        known = {**registered(), **self.configured_backends}
         out: dict[str, Any] = {}
-        for name, backend in registered().items():
+        for name, backend in known.items():
             available = getattr(backend, "available", None)
             out[name] = {
                 "ready": bool(available()) if callable(available) else True,
@@ -202,6 +210,24 @@ class State:
     def attach_job_runner(self, runner: JobRunner) -> None:
         """Give the queue something to run. The backends do this in P4."""
         self.jobs.runner = runner
+
+    def backend_for(self, model_id: str) -> Any | None:
+        """Which backend trains *model_id* on this node.
+
+        This node's own backends first, and the shared registry only as a
+        fallback for a caller that never went through ``attach``. The order
+        is the point: the registry is process-global and last-write-wins.
+        """
+        for backend in self.configured_backends.values():
+            try:
+                if backend.supports(model_id):
+                    return backend
+            except Exception:  # noqa: BLE001 - a broken backend must not hide the rest
+                continue
+
+        from ..core.backends import supported_by
+
+        return supported_by(model_id)
 
     def shutdown(self) -> None:
         self.tasks.shutdown()

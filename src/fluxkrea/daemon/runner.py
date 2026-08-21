@@ -15,13 +15,14 @@ at whatever the submitter happened to type.
 
 from __future__ import annotations
 
+import sys
 import threading
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from ..core import paths
-from ..core.backends import BackendError, TrainingBackend, supported_by
+from ..core.backends import BackendError, TrainingBackend
 from ..core.dataset import validate
 from ..core.events import Emitter, Log, safe
 from ..core.backends.spec import RunSpec, run_name
@@ -69,7 +70,7 @@ def make_job_runner(state: State):  # noqa: ANN201 - returns a JobRunner
         emit = safe(emit)
         spec = resolve(state, job.spec, emit)
 
-        backend = supported_by(spec.model)
+        backend = state.backend_for(spec.model)
         if backend is None:
             raise BackendError(
                 f"no backend handles model {spec.model!r}. "
@@ -185,12 +186,24 @@ def attach(state: State) -> TrainingBackend | None:
 
     Called once at daemon start. Registering a *configured* instance
     replaces the import-time default, which knows the models but not where
-    anything lives on this machine.
+    anything lives on this machine - and keeping a reference on the state
+    means a later registration elsewhere in the process cannot take it back.
+
+    What it registered is printed, because "ready: false" on a node whose
+    config.toml is correct is a question nobody could answer afterwards:
+    the daemon had already been restarted, and nothing recorded what it
+    had built the backend with.
     """
     from ..core.backends import register
     from ..core.backends.aitoolkit import AIToolkitBackend
 
     backend = AIToolkitBackend.from_config(state.config)
     register(backend)
+    state.configured_backends[backend.name] = backend
     state.attach_job_runner(make_job_runner(state))
+
+    # stderr, not stdout: `fk --json` writes its payload to stdout and a
+    # stray line there is a parse error in every client that reads it.
+    where = backend.toolkit_path.as_posix() if backend.toolkit_path else "not configured"
+    print(f"backend   {backend.name}: {where}", file=sys.stderr, flush=True)
     return backend
