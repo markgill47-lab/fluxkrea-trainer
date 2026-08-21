@@ -78,6 +78,13 @@ def make_job_runner(state: State):  # noqa: ANN201 - returns a JobRunner
 
         _preflight(state, spec, emit)
 
+        # Write the resolved spec back onto the job. Until this happens the
+        # job still holds what was submitted - a dataset id, no output path -
+        # so anything reading job.spec afterwards (the samples endpoint, the
+        # monitor, a restart) sees a spec that cannot locate the run's own
+        # files.
+        job.spec = spec
+
         config_path = backend.generate_config(spec)
         job.config_path = str(config_path)
         emit(Log(line=f"Config written to {config_path}"))

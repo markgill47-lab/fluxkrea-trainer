@@ -31,11 +31,11 @@ export default defineConfig({
       output: {
         // uPlot and the virtualizer are large enough to be worth caching
         // separately from application code that changes every commit.
-        // uPlot joins this when the training monitor lands; splitting it
-        // out now just produces an empty chunk and a warning that trains
-        // people to ignore warnings.
+        // uPlot is stable and large relative to app code, so it is worth
+        // caching separately from the bundle that changes every commit.
         manualChunks: {
           vendor: ["preact", "@tanstack/virtual-core"],
+          chart: ["uplot"],
         },
       },
     },

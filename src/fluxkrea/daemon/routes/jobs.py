@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Header, Query
+from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 from ..queue import QUEUED, RunSpec
@@ -107,19 +108,92 @@ def events(
 
 
 @router.get("/{job_id}/loss")
-def loss(job_id: str, state: State = Depends(get_state)) -> dict[str, Any]:
-    """The loss series.
+def loss(
+    job_id: str,
+    points: int = Query(default=2000, description="cap on returned points; 0 for all"),
+    ema: int = Query(default=50, description="EMA window"),
+    state: State = Depends(get_state),
+) -> dict[str, Any]:
+    """The loss series, with EMA, trend and outliers.
 
-    EMA, trend and outliers are deliberately *not* computed by a backend:
-    ``analytics/loss.py`` will derive them from this series above the
-    backend line, so every backend gets them equally (doc 02). Until that
-    module exists, the raw points are what there is.
+    None of this is computed by a backend. Backends emit ``LossPoint``
+    events and ``analytics/loss.py`` derives the rest, so every backend
+    gets the same features rather than whichever ones its author happened
+    to implement (doc 02).
+
+    Decimation happens here rather than in the client, so a 20,000-step run
+    also does not send 20,000 points across a tunnel to draw 2,000 pixels.
     """
     job = _job(state, job_id)
-    return {
-        "id": job_id,
-        "points": [{"step": step, "value": value} for step, value in job.loss],
-    }
+    return {"id": job_id, **job.series.as_dict(decimate_to=points, ema_window=ema)}
+
+
+@router.get("/{job_id}/samples")
+def samples(job_id: str, state: State = Depends(get_state)) -> dict[str, Any]:
+    """Sample images generated during the run, newest first.
+
+    Served as a listing of steps and URLs rather than bytes: doc 10 warns
+    that a run producing a 1024x1024 sample every 400 steps fills a strip
+    fast, so they are thumbnails in the strip and full size only on click.
+    """
+    job = _job(state, job_id)
+    return {"id": job_id, "samples": _find_samples(job)}
+
+
+@router.get("/{job_id}/samples/{name}")
+def sample_image(job_id: str, name: str, state: State = Depends(get_state)) -> FileResponse:
+    job = _job(state, job_id)
+    for entry in _find_samples(job):
+        if entry["name"] == name:
+            return FileResponse(entry["path"], media_type="image/jpeg")
+    raise Denied(f"no sample {name!r} for job {job_id}", status=404)
+
+
+#: Where trainers write samples, relative to the run's output folder.
+SAMPLE_DIRS = ("samples", "sample")
+SAMPLE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def _find_samples(job: Any) -> list[dict[str, Any]]:
+    """Locate sample images in a run's output folder.
+
+    The step is parsed from the filename, which is how every trainer here
+    names them. A file that does not carry one still gets listed, ordered
+    by mtime, rather than being hidden because it did not match a pattern.
+    """
+    import re
+
+    from ...core import paths as core_paths
+
+    root = core_paths.expand(job.spec.output) if job.spec.output else None
+    if root is None or not root.is_dir():
+        return []
+
+    found: list[dict[str, Any]] = []
+    for folder in (root, *(root / name for name in SAMPLE_DIRS)):
+        if not folder.is_dir():
+            continue
+        for entry in folder.iterdir():
+            if not entry.is_file() or entry.suffix.lower() not in SAMPLE_SUFFIXES:
+                continue
+            digits = re.findall(r"\d+", entry.stem)
+            step = int(digits[-1]) if digits else 0
+            try:
+                mtime = entry.stat().st_mtime
+            except OSError:
+                continue
+            found.append(
+                {
+                    "name": entry.name,
+                    "step": step,
+                    "mtime": mtime,
+                    "path": str(entry),
+                    "url": f"/api/v1/jobs/{job.id}/samples/{entry.name}",
+                }
+            )
+
+    found.sort(key=lambda entry: (entry["step"], entry["mtime"]))
+    return found
 
 
 def _check_model(state: State, spec: RunSpec) -> None:

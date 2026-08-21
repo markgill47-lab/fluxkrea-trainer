@@ -1,0 +1,302 @@
+/* The training monitor — doc 09.
+ *
+ * Stat tiles across the top, the chart taking the largest single band,
+ * samples and logs sharing the lower one.
+ */
+
+.monitor {
+  display: grid;
+  grid-template-rows: 44px auto minmax(120px, 40fr) minmax(90px, 35fr);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 34%);
+  grid-template-areas:
+    "head head"
+    "tiles tiles"
+    "chart chart"
+    "samples logs";
+  height: 100%;
+  min-height: 0;
+}
+
+.monitor__head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  min-width: 0;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.monitor__title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pill-status {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+}
+
+.pill-status--running {
+  background: color-mix(in srgb, var(--state-running) 22%, transparent);
+  color: var(--state-running);
+}
+.pill-status--done {
+  background: color-mix(in srgb, var(--state-success) 20%, transparent);
+  color: var(--state-success);
+}
+.pill-status--failed,
+.pill-status--interrupted {
+  background: color-mix(in srgb, var(--state-error) 20%, transparent);
+  color: var(--state-error);
+}
+.pill-status--queued {
+  color: var(--state-queued);
+}
+.pill-status--cancelled {
+  color: var(--state-paused);
+}
+
+/* -- stat tiles ------------------------------------------------------------ */
+
+.tiles {
+  grid-area: tiles;
+  display: flex;
+  gap: 1px;
+  background: var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Fixed width so a row of them does not reflow as values change digits. */
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 132px;
+  padding: 7px 12px;
+  background: var(--bg-panel);
+}
+
+.tile--warn .tile__value {
+  color: var(--state-warning);
+}
+
+.tile__label {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tile__value {
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.tile__sub {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.tile__spark {
+  margin-top: 2px;
+  opacity: 0.85;
+}
+
+/* -- chart ----------------------------------------------------------------- */
+
+.monitor__chart {
+  grid-area: chart;
+  min-height: 0;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border);
+}
+
+.chart {
+  width: 100%;
+  height: 100%;
+}
+
+/* uPlot ships light-theme defaults; these are the only overrides needed. */
+.u-legend {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.u-legend .u-marker {
+  border-radius: 2px;
+}
+
+.u-select {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+/* -- samples --------------------------------------------------------------- */
+
+.samples {
+  grid-area: samples;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--bg-app);
+  border-right: 1px solid var(--border);
+}
+
+.samples__scroll {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.sample {
+  margin: 0;
+  flex: none;
+  cursor: zoom-in;
+}
+
+.sample img {
+  display: block;
+  height: 92px;
+  width: auto;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg-void);
+}
+
+.sample figcaption {
+  padding-top: 2px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-align: center;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 32px;
+  background: color-mix(in srgb, var(--bg-void) 85%, transparent);
+  cursor: zoom-out;
+}
+
+.lightbox img {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+}
+
+.lightbox__caption {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* -- logs ------------------------------------------------------------------ */
+
+.logs {
+  grid-area: logs;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--bg-void);
+}
+
+.logs__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.logs__filter {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+}
+
+.logs__level {
+  height: 24px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 11px;
+}
+
+.logs__jump {
+  height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.logs__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.logs__line {
+  padding: 1px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  /* One line per row: uniform heights make follow-tail exact. */
+  white-space: pre;
+  color: var(--text-secondary);
+}
+
+.logs__line--debug {
+  color: var(--text-tertiary);
+}
+.logs__line--warning {
+  color: var(--state-warning);
+}
+.logs__line--error {
+  color: var(--state-error);
+}
+
+/* Below 1100px the lower band stacks rather than splitting. */
+@media (max-width: 1099px) {
+  .monitor {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 44px auto minmax(120px, 36fr) minmax(80px, 20fr) minmax(90px, 24fr);
+    grid-template-areas:
+      "head"
+      "tiles"
+      "chart"
+      "samples"
+      "logs";
+  }
+  .samples {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}

@@ -16,9 +16,12 @@ import type {
   Dataset,
   Health,
   ItemsResponse,
+  Job,
+  LossPayload,
   ModelInfo,
   NodeInfo,
   ReviewProgress,
+  SampleImage,
   Task,
   ValidationReport,
 } from "./types";
@@ -198,6 +201,36 @@ export const api = {
   ) => request<Task>("POST", `/datasets/${dataset}/ops/${operation}`, options, o),
 
   task: (id: string, o?: RequestOptions) => request<Task>("GET", `/tasks/${id}`, undefined, o),
+
+  // -- training ---------------------------------------------------------
+
+  jobs: (o?: RequestOptions) =>
+    request<{ jobs: Job[]; depth: number; devices: number; runner: boolean }>(
+      "GET",
+      "/jobs",
+      undefined,
+      o,
+    ),
+
+  job: (id: string, o?: RequestOptions) => request<Job>("GET", `/jobs/${id}`, undefined, o),
+
+  cancelJob: (id: string, o?: RequestOptions) =>
+    request<{ id: string; was: string; status: string; dequeued: boolean }>(
+      "DELETE",
+      `/jobs/${id}`,
+      undefined,
+      o,
+    ),
+
+  /** The derived series: points, EMA, trend and outliers, decimated. */
+  loss: (id: string, points = 2000, o?: RequestOptions) =>
+    request<LossPayload>("GET", `/jobs/${id}/loss`, undefined, {
+      ...o,
+      params: { points },
+    }),
+
+  samples: (id: string, o?: RequestOptions) =>
+    request<{ id: string; samples: SampleImage[] }>("GET", `/jobs/${id}/samples`, undefined, o),
 
   cancelTask: (id: string, o?: RequestOptions) =>
     request<{ id: string; cancelling: boolean }>("DELETE", `/tasks/${id}`, undefined, o),

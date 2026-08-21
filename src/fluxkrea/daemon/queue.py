@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core import paths
+from ..core.analytics import LossSeries
 from ..core.backends.spec import RunSpec
 from ..core.events import Emitter, Event, Finished, Log, LossPoint, Progress, safe
 
@@ -66,12 +67,19 @@ class Job:
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _done: threading.Event = field(default_factory=threading.Event, repr=False)
     _next: int = 0
-    #: Loss series, kept so ``GET /jobs/{id}/loss`` can answer after the fact.
-    loss: list[tuple[int, float]] = field(default_factory=list, repr=False)
+    #: The loss series and everything derived from it. Held here rather
+    #: than in a backend because analytics live above the backend line, so
+    #: every backend gets EMA, trend and outliers equally (doc 02).
+    series: LossSeries = field(default_factory=LossSeries, repr=False)
 
     @property
     def device(self) -> int:
         return self.spec.device
+
+    @property
+    def loss(self) -> list[tuple[int, float]]:
+        """Raw points, for callers that want the series and nothing else."""
+        return list(zip(self.series.steps, self.series.values, strict=False))
 
     @property
     def done(self) -> bool:
@@ -88,10 +96,10 @@ class Job:
             if isinstance(event, Progress):
                 self.progress = {"step": event.step, "total": event.total}
         if isinstance(event, LossPoint):
-            # Kept so GET /jobs/{id}/loss can answer after the run has ended.
-            # analytics/loss.py derives EMA, trend and outliers from these,
-            # above the backend line, so every backend gets them (doc 02).
-            self.loss.append((event.step, event.value))
+            # Incremental: a run emits a point per step for hours, and
+            # recomputing an EMA over the whole series per point would make
+            # the monitor the slowest thing on the node.
+            self.series.add(event.step, event.value, event.image_id)
         for queue in targets:
             try:
                 queue.put_nowait(envelope)

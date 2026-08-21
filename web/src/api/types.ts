@@ -152,3 +152,87 @@ export interface ModelInfo {
   text_encoder: string;
   notes: string;
 }
+
+// --------------------------------------------------------------------------
+// training
+// --------------------------------------------------------------------------
+
+export type JobStatus =
+  | "queued"
+  | "running"
+  | "done"
+  | "failed"
+  | "cancelled"
+  | "interrupted";
+
+export interface RunSpec {
+  model: string;
+  dataset: string;
+  name: string;
+  output: string;
+  device: number;
+  steps: number;
+  batch_size: number;
+  learning_rate: number;
+  network_dim: number;
+  network_alpha: number;
+  resolution: number;
+  mask_path: string;
+  mask_min_value: number;
+  sample_every: number;
+  save_every: number;
+  seed: number | null;
+  extra: Record<string, unknown>;
+}
+
+export interface Job {
+  id: string;
+  status: JobStatus;
+  created: number;
+  started: number | null;
+  finished: number | null;
+  error: string;
+  device: number;
+  config_path: string;
+  progress: { step: number; total: number };
+  events: number;
+  spec: RunSpec;
+}
+
+export interface Trend {
+  status: "improving" | "stable" | "degrading" | "converged" | "unknown";
+  slope: number | null;
+  window: number;
+}
+
+export interface Outlier {
+  image_id: string;
+  mean: number;
+  severity: number;
+  samples: number;
+  /** Assigned client-side for drawing; the analytics identify which image,
+   *  not when. */
+  step?: number;
+}
+
+export interface LossPayload {
+  id: string;
+  points: { step: number; value: number }[];
+  ema: { step: number; value: number }[];
+  ema_window: number;
+  count: number;
+  decimated: boolean;
+  latest: number | null;
+  latest_ema: number | null;
+  trend: Trend;
+  outliers: Outlier[];
+}
+
+export type LossSeries = LossPayload;
+
+export interface SampleImage {
+  name: string;
+  step: number;
+  mtime: number;
+  url: string;
+}

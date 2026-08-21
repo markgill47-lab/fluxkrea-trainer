@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from "preact/hooks";
 import { api, ApiError, isAbort } from "~/api/client";
 import type { Dataset, Health, NodeInfo } from "~/api/types";
 import { GalleryScreen } from "~/gallery/GalleryScreen";
+import { MonitorScreen } from "~/monitor/MonitorScreen";
 import { ReviewScreen } from "~/review/ReviewScreen";
 
 type Screen = "datasets" | "review" | "training" | "fleet";
@@ -135,7 +136,9 @@ export function App() {
             <NoDataset />
           ))}
 
-        {(screen === "training" || screen === "fleet") && (
+        {screen === "training" && <MonitorScreen onError={setError} />}
+
+        {screen === "fleet" && (
           <div class="empty">
             <div class="empty__title">{titleOf(screen)}</div>
             <div>Not built yet.</div>
