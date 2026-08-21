@@ -1,0 +1,406 @@
+/* The dataset gallery — doc 09.
+ *
+ * Header carries dataset identity and the batch actions; filter chips
+ * below it are the primary navigation of a large dataset; the grid takes
+ * what is left; the inspector is a fixed 320px.
+ */
+
+.gallery {
+  display: grid;
+  grid-template-rows: 44px 36px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas:
+    "head inspector"
+    "filters inspector"
+    "grid inspector";
+  height: 100%;
+  min-height: 0;
+}
+
+/* A task bar and the validation panel push rows in when present, so they
+ * are declared as extra rows rather than overlaying the grid. */
+.gallery:has(.taskbar) {
+  grid-template-rows: 44px 36px 28px minmax(0, 1fr);
+  grid-template-areas:
+    "head inspector"
+    "filters inspector"
+    "task inspector"
+    "grid inspector";
+}
+
+.gallery:has(.problems) {
+  grid-template-rows: 44px 36px auto minmax(0, 1fr);
+  grid-template-areas:
+    "head inspector"
+    "filters inspector"
+    "problems inspector"
+    "grid inspector";
+}
+
+.gallery:has(.taskbar):has(.problems) {
+  grid-template-rows: 44px 36px 28px auto minmax(0, 1fr);
+  grid-template-areas:
+    "head inspector"
+    "filters inspector"
+    "task inspector"
+    "problems inspector"
+    "grid inspector";
+}
+
+.gallery__head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  min-width: 0;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.gallery__title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gallery__meta,
+.gallery__scope {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* The selection count is always visible, because selection is the input to
+ * every batch operation (doc 09). */
+.gallery__scope {
+  color: var(--text-primary);
+}
+
+.gallery__filters {
+  grid-area: filters;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border);
+}
+
+.chip--on {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.hint {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+/* -- task bar -------------------------------------------------------------- */
+
+.taskbar {
+  grid-area: task;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: var(--accent-muted);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.taskbar--failed {
+  background: color-mix(in srgb, var(--state-error) 20%, transparent);
+  color: var(--state-error);
+}
+
+.taskbar progress {
+  flex: 1;
+  max-width: 320px;
+  height: 4px;
+  accent-color: var(--accent);
+}
+
+.taskbar__status {
+  margin-left: auto;
+  color: var(--text-secondary);
+}
+
+/* -- grid ------------------------------------------------------------------ */
+
+.grid {
+  grid-area: grid;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  padding: 8px;
+  background: var(--bg-app);
+}
+
+.grid__row {
+  display: flex;
+  width: 100%;
+}
+
+.cell {
+  margin: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cell__frame {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-void);
+  border: 1px solid var(--border);
+}
+
+.cell--selected .cell__frame {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.cell--focused .cell__frame {
+  outline: 1px solid var(--text-secondary);
+  outline-offset: 1px;
+}
+
+.cell__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cell__name {
+  padding: 3px 2px 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cell--selected .cell__name {
+  color: var(--text-primary);
+}
+
+/* Status overlays, not a legend: you are looking for the odd one out, and
+ * it should be visible without reading (doc 08). */
+.cell__status {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  display: flex;
+  gap: 3px;
+}
+
+.dot {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--bg-void) 72%, transparent);
+}
+
+.dot--on {
+  color: var(--state-success);
+}
+
+.dot--off {
+  color: var(--state-error);
+}
+
+.cell__badges {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  display: flex;
+  gap: 3px;
+}
+
+.badge {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: color-mix(in srgb, var(--bg-void) 72%, transparent);
+}
+
+.badge--good {
+  color: var(--state-success);
+}
+.badge--ok {
+  color: var(--text-secondary);
+}
+.badge--bad {
+  color: var(--state-error);
+}
+
+.cell__check {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: #05121f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* -- validation panel ------------------------------------------------------ */
+
+.problems {
+  grid-area: problems;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.problems__head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.problems__group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 12px;
+  text-align: left;
+  font-size: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+
+.problems__group:hover {
+  background: var(--bg-raised);
+}
+
+.problems__group--error {
+  box-shadow: inset 2px 0 0 var(--state-error);
+}
+.problems__group--warning {
+  box-shadow: inset 2px 0 0 var(--state-warning);
+}
+.problems__group--info {
+  box-shadow: inset 2px 0 0 var(--text-tertiary);
+}
+
+.problems__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--bg-app);
+}
+
+.problems__item {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  padding: 3px 12px 3px 32px;
+  text-align: left;
+  font-size: 11px;
+}
+
+.problems__item:hover {
+  background: var(--bg-raised);
+}
+
+/* -- inspector ------------------------------------------------------------- */
+
+.gallery .inspector {
+  grid-area: inspector;
+}
+
+.inspector__thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--bg-void);
+  cursor: zoom-in;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.inspector__stem {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.caption {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12px;
+  resize: vertical;
+}
+
+.caption:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.caption__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.caption__count {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.quality {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* Below 1200px the inspector floats, same reasoning as review. */
+@media (max-width: 1199px) {
+  .gallery {
+    grid-template-columns: minmax(0, 1fr) 0;
+  }
+  .gallery .inspector {
+    position: absolute;
+    top: 44px;
+    right: 0;
+    bottom: 0;
+    width: 320px;
+    z-index: 5;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
+  }
+}

@@ -89,6 +89,29 @@ class Metadata:
     def _entry(self, filename: str) -> dict[str, Any]:
         return self.entries.setdefault(filename, {})
 
+    # -- cached dimensions -------------------------------------------------
+
+    def size(self, filename: str, token: str) -> tuple[int, int] | None:
+        """Cached ``(width, height)``, or ``None`` if it must be re-read.
+
+        Keyed by the same token the thumbnails use, so a resize invalidates
+        the cached dimensions along with the cached thumbnail rather than
+        leaving the gallery reporting the old size.
+        """
+        entry = self.get(filename)
+        if entry.get("size_token") != token:
+            return None
+        width, height = entry.get("width"), entry.get("height")
+        if isinstance(width, int) and isinstance(height, int):
+            return width, height
+        return None
+
+    def set_size(self, filename: str, token: str, width: int, height: int) -> None:
+        entry = self._entry(filename)
+        entry["width"] = width
+        entry["height"] = height
+        entry["size_token"] = token
+
     def __contains__(self, filename: object) -> bool:
         return filename in self.entries
 

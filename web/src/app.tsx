@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { api, ApiError, isAbort } from "~/api/client";
 import type { Dataset, Health, NodeInfo } from "~/api/types";
+import { GalleryScreen } from "~/gallery/GalleryScreen";
 import { ReviewScreen } from "~/review/ReviewScreen";
 
 type Screen = "datasets" | "review" | "training" | "fleet";
@@ -19,7 +20,7 @@ type Screen = "datasets" | "review" | "training" | "fleet";
 const HEALTH_INTERVAL = 10_000;
 
 export function App() {
-  const [screen, setScreen] = useState<Screen>("review");
+  const [screen, setScreen] = useState<Screen>("datasets");
   const [health, setHealth] = useState<Health | null>(null);
   const [node, setNode] = useState<NodeInfo | null>(null);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -116,25 +117,42 @@ export function App() {
       <main class="content">
         {error && <div class="banner">⚠ {error}</div>}
 
+        {screen === "datasets" &&
+          (dataset ? (
+            <GalleryScreen
+              dataset={dataset}
+              onError={setError}
+              onOpenReview={() => setScreen("review")}
+            />
+          ) : (
+            <NoDataset />
+          ))}
+
         {screen === "review" &&
           (dataset ? (
             <ReviewScreen dataset={dataset} detectors={detectors} onError={setError} />
           ) : (
-            <div class="empty">
-              <div class="empty__title">No dataset registered</div>
-              <div>
-                Register one with <code class="mono">fk dataset register &lt;path&gt;</code>
-              </div>
-            </div>
+            <NoDataset />
           ))}
 
-        {screen !== "review" && (
+        {(screen === "training" || screen === "fleet") && (
           <div class="empty">
             <div class="empty__title">{titleOf(screen)}</div>
-            <div>Not built yet — the review screen came first, by design.</div>
+            <div>Not built yet.</div>
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function NoDataset() {
+  return (
+    <div class="empty">
+      <div class="empty__title">No dataset registered</div>
+      <div>
+        Register one with <code class="mono">fk dataset register &lt;path&gt;</code>
+      </div>
     </div>
   );
 }

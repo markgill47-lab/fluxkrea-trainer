@@ -181,6 +181,15 @@ export const api = {
       o,
     ),
 
+  /** Quality is derived metadata; null clears it. */
+  putQuality: (dataset: string, stem: string, quality: string | null, o?: RequestOptions) =>
+    request<{ stem: string; quality: string | null }>(
+      "PUT",
+      `/datasets/${dataset}/items/${stem}/quality`,
+      { quality },
+      o,
+    ),
+
   runOperation: (
     dataset: string,
     operation: string,

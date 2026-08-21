@@ -58,6 +58,9 @@ export interface Item {
   quality: string | null;
   boxes: number;
   reviewed: boolean;
+  /** Cached in metadata.json, keyed by the same token as the thumbnail. */
+  width: number | null;
+  height: number | null;
   /** Cache token; changes when the file does. Makes the thumb URL immutable. */
   token: string;
 }

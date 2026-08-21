@@ -17,11 +17,12 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from ...core import paths
 from ...core.dataset import archive, manifest, thumbs, validate
+from ...core.dataset.metadata import QUALITY_VALUES, Metadata
 from ...core.dataset.boxes import BoxStore
 from ...core.dataset.ops import augment, detect_faces, export_masks, plan_rename, resize
 from ...core.dataset.ops.rename import execute as execute_rename
 from ...core.detect import MANUAL, Box, DetectorError, get_detector
-from ...core.imaging import ImageError
+from ...core.imaging import ImageError, read_size
 from ...core.events import Emitter, Log
 from ..security import Denied
 from ..state import State
@@ -77,25 +78,57 @@ def rescan(dataset_id: str, state: State = Depends(get_state)) -> dict[str, Any]
 
 @router.get("/{dataset_id}/items")
 def items(dataset_id: str, state: State = Depends(get_state)) -> dict[str, Any]:
-    boxes = BoxStore.load(state.dataset_path(dataset_id))
+    """Every bundle, with the status the gallery paints on each cell.
+
+    Dimensions are cached in ``metadata.json`` rather than read on every
+    request: the gallery wants them for all 10,000 cells, and a header read
+    per image per page load adds up. The cache key is the same token the
+    thumbnails use, so a resize invalidates both together.
+    """
+    root = state.dataset_path(dataset_id)
+    boxes = BoxStore.load(root)
+    meta = Metadata.load(root)
     found = state.items(dataset_id)
-    return {
-        "items": [
+    dirty = False
+
+    payload = []
+    for item in found:
+        name = item.image.name
+        token = thumbs.token_for(item.image)
+
+        size = meta.size(name, token)
+        if size is None:
+            try:
+                measured = read_size(item.image)
+                size = (measured.width, measured.height)
+                meta.set_size(name, token, *size)
+                dirty = True
+            except ImageError:
+                size = None
+
+        payload.append(
             {
                 "stem": item.stem,
-                "filename": item.image.name,
+                "filename": name,
                 "caption": item.read_caption() if item.has_caption() else None,
                 "has_caption": item.has_caption(),
                 "has_mask": item.has_mask(),
                 "quality": item.quality,
-                "boxes": len(boxes.boxes(item.image.name)),
-                "reviewed": boxes.is_reviewed(item.image.name),
+                "boxes": len(boxes.boxes(name)),
+                "reviewed": boxes.is_reviewed(name),
+                "width": size[0] if size else None,
+                "height": size[1] if size else None,
                 # Changes when the file does, so a thumbnail URL carrying
                 # it can be cached immutably (doc 10).
-                "token": thumbs.token_for(item.image),
+                "token": token,
             }
-            for item in found
-        ],
+        )
+
+    if dirty:
+        meta.save()
+
+    return {
+        "items": payload,
         "review": boxes.progress(i.image.name for i in found).as_dict(),
     }
 
@@ -193,6 +226,29 @@ def put_caption(
 # --------------------------------------------------------------------------
 # the review pass
 # --------------------------------------------------------------------------
+
+
+@router.put("/{dataset_id}/items/{stem}/quality")
+def put_quality(
+    dataset_id: str,
+    stem: str,
+    payload: dict[str, Any] = Body(...),
+    state: State = Depends(get_state),
+) -> dict[str, Any]:
+    """Set or clear an item's quality rating (good / ok / bad).
+
+    Derived metadata, never authoritative for anything a trainer reads -
+    delete ``metadata.json`` and nothing training-relevant is lost (doc 03).
+    """
+    item = state.item(dataset_id, stem)
+    quality = payload.get("quality")
+    if quality is not None and quality not in QUALITY_VALUES:
+        raise Denied(f"quality must be one of {QUALITY_VALUES} or null", status=400)
+
+    meta = Metadata.load(state.dataset_path(dataset_id))
+    meta.set_quality(item.image.name, quality)
+    meta.save()
+    return {"stem": stem, "quality": quality}
 
 
 @router.get("/{dataset_id}/items/{stem}/boxes")

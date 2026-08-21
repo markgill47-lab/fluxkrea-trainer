@@ -388,3 +388,79 @@ def test_browse_marks_registered_folders(api: httpx.Client, tmp_path: Path, data
 @pytest.fixture
 def api_root(tmp_path: Path) -> Path:
     return tmp_path
+
+
+# --------------------------------------------------------------------------
+# what the gallery needs
+# --------------------------------------------------------------------------
+
+
+def test_items_carry_dimensions(api: httpx.Client, dataset: Path) -> None:
+    """The gallery inspector shows them for every cell, so they ship inline."""
+    dataset_id = register(api, dataset)
+    items = api.get(f"/datasets/{dataset_id}/items").json()["items"]
+
+    first = next(item for item in items if item["stem"] == "punch_001")
+    assert (first["width"], first["height"]) == (65, 49)
+
+
+def test_dimensions_are_cached_between_requests(api: httpx.Client, dataset: Path) -> None:
+    from fluxkrea.core.dataset.metadata import Metadata
+
+    dataset_id = register(api, dataset)
+    api.get(f"/datasets/{dataset_id}/items")
+
+    cached = Metadata.load(dataset)
+    entry = cached.get("punch_001.jpg")
+    assert entry["width"] == 65 and entry["size_token"]
+
+
+def test_a_resize_invalidates_the_cached_dimensions(api: httpx.Client, dataset: Path) -> None:
+    """Same token as the thumbnail, so both invalidate together."""
+    dataset_id = register(api, dataset)
+    api.get(f"/datasets/{dataset_id}/items")
+
+    run_op(api, dataset_id, "resize", size=32)
+    items = api.get(f"/datasets/{dataset_id}/items").json()["items"]
+
+    first = next(item for item in items if item["stem"] == "punch_001")
+    assert first["width"] == 32, "the gallery would have reported the old size"
+
+
+def test_an_unreadable_image_reports_no_dimensions(api: httpx.Client, dataset: Path) -> None:
+    (dataset / "broken.jpg").write_bytes(b"not an image")
+    dataset_id = register(api, dataset)
+
+    items = api.get(f"/datasets/{dataset_id}/items").json()["items"]
+    broken = next(item for item in items if item["stem"] == "broken")
+    assert broken["width"] is None and broken["height"] is None
+
+
+def test_quality_round_trip(api: httpx.Client, dataset: Path) -> None:
+    dataset_id = register(api, dataset)
+    path = f"/datasets/{dataset_id}/items/punch_001/quality"
+
+    assert api.put(path, json={"quality": "good"}).status_code == 200
+    items = api.get(f"/datasets/{dataset_id}/items").json()["items"]
+    assert next(i for i in items if i["stem"] == "punch_001")["quality"] == "good"
+
+    api.put(path, json={"quality": None})
+    items = api.get(f"/datasets/{dataset_id}/items").json()["items"]
+    assert next(i for i in items if i["stem"] == "punch_001")["quality"] is None
+
+
+def test_an_invalid_quality_is_refused(api: httpx.Client, dataset: Path) -> None:
+    dataset_id = register(api, dataset)
+    response = api.put(f"/datasets/{dataset_id}/items/punch_001/quality", json={"quality": "great"})
+    assert response.status_code == 400
+
+
+def test_quality_survives_a_rename(api: httpx.Client, dataset: Path) -> None:
+    """Ratings are keyed by filename, and rename carries the metadata."""
+    dataset_id = register(api, dataset)
+    api.put(f"/datasets/{dataset_id}/items/punch_001/quality", json={"quality": "bad"})
+
+    run_op(api, dataset_id, "rename", prefix="kick")
+
+    items = api.get(f"/datasets/{dataset_id}/items").json()["items"]
+    assert next(i for i in items if i["stem"] == "kick_001")["quality"] == "bad"
