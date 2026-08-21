@@ -1,0 +1,13 @@
+# The desk is Windows and the fleet is Linux. Normalise to LF in the
+# repository so a systemd unit or a shell script checked out on a node is
+# not delivered with CRLF, whatever anyone's core.autocrlf happens to be.
+* text=auto eol=lf
+
+# Binary. Never touch these.
+*.onnx binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.safetensors binary
+*.zip binary
