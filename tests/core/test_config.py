@@ -131,10 +131,27 @@ def test_saved_file_uses_posix_separators(tmp_path: Path) -> None:
 
 def test_saved_file_never_contains_a_secret(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FLUXKREA_CLAUDE_API_KEY", "sk-secret-value")
-    text = config.load().save(tmp_path / "out.toml").read_text(encoding="utf-8")
-    assert "sk-secret-value" not in text
-    for hint in config.SECRET_HINTS:
-        assert hint not in text.lower()
+    target = config.load().save(tmp_path / "out.toml")
+    assert "sk-secret-value" not in target.read_text(encoding="utf-8")
+
+    # The strongest statement available: what was written loads again. A
+    # secret in it would be a hard error on the way back in, so a clean
+    # round trip *is* the assertion that none was written.
+    config.load(path=target)
+
+
+def test_a_string_setting_named_like_a_secret_is_refused(tmp_path: Path) -> None:
+    target = tmp_path / "sneaky.toml"
+    target.write_text('[captioner]\napi_key = "sk-nope"\n', encoding="utf-8")
+    with pytest.raises(config.ConfigError, match="looks like a secret"):
+        config.load(path=target)
+
+
+def test_a_number_named_after_a_secret_is_a_count_not_a_secret(tmp_path: Path) -> None:
+    """``max_tokens`` contains "token" and is a length limit."""
+    target = tmp_path / "counts.toml"
+    target.write_text("[captioner]\nmax_tokens = 250\n", encoding="utf-8")
+    assert config.load(path=target).captioner.max_tokens == 250
 
 
 def test_secret_comes_from_env_with_aliases(monkeypatch: pytest.MonkeyPatch) -> None:

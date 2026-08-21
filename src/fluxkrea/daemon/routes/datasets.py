@@ -19,7 +19,15 @@ from ...core import paths
 from ...core.dataset import archive, manifest, thumbs, validate
 from ...core.dataset.metadata import QUALITY_VALUES, Metadata
 from ...core.dataset.boxes import BoxStore
-from ...core.dataset.ops import augment, detect_faces, export_masks, plan_rename, resize
+from ...core.captioners import CaptionerError, DEFAULT_PROMPT, from_config as build_captioner
+from ...core.dataset.ops import (
+    augment,
+    caption,
+    detect_faces,
+    export_masks,
+    plan_rename,
+    resize,
+)
 from ...core.dataset.ops.rename import execute as execute_rename
 from ...core.detect import MANUAL, Box, DetectorError, get_detector
 from ...core.imaging import ImageError, read_size
@@ -31,7 +39,7 @@ from .deps import get_state
 router = APIRouter(prefix="/datasets", tags=["datasets"])
 
 #: Operations reachable through ``POST /datasets/{id}/ops/{name}``.
-OPS = ("resize", "rename", "augment", "mask", "detect", "validate")
+OPS = ("resize", "rename", "augment", "caption", "mask", "detect", "validate")
 
 
 # --------------------------------------------------------------------------
@@ -390,6 +398,29 @@ def _build(state: State, operation: str, root: Any, options: dict[str, Any]):  #
 
         return run_augment
 
+    if operation == "caption":
+        # Built here rather than inside the task so a bad provider name or
+        # a missing SDK is a 422 on the request, not a task that starts
+        # and immediately dies.
+        captioner = _captioner(state, options)
+        settings = config.captioner
+
+        def run_caption(emit: Emitter, cancel: threading.Event) -> Any:
+            return caption(
+                root,
+                captioner,
+                prompt=str(_opt(options, "prompt", settings.prompt) or DEFAULT_PROMPT),
+                prefix=str(_opt(options, "prefix", settings.prefix)),
+                overwrite=bool(_opt(options, "overwrite", False)),
+                max_tokens=int(_opt(options, "max_tokens", settings.max_tokens)),
+                extensions=extensions,
+                caption_ext=caption_ext,
+                emit=emit,
+                cancel=cancel,
+            )
+
+        return run_caption
+
     if operation == "detect":
         detector = _detector(state, options)
 
@@ -448,6 +479,28 @@ def _build(state: State, operation: str, root: Any, options: dict[str, Any]):  #
         )
 
     return run_validate
+
+
+def _captioner(state: State, options: dict[str, Any]):  # noqa: ANN202
+    """Build the captioner a caption request asks for.
+
+    Overrides are accepted per request - the settings screen tests a
+    provider before saving it - but the API key never travels this way.
+    It comes from the environment or the keyring on the node, which is
+    what keeps it out of request logs and out of ``config.toml``.
+    """
+    overrides = {
+        key: options[key]
+        for key in ("provider", "url", "model", "timeout")
+        if options.get(key) is not None
+    }
+    try:
+        return build_captioner(state.config.captioner, **overrides)
+    except CaptionerError as exc:
+        raise Denied(str(exc), status=422) from exc
+    except TypeError as exc:
+        # e.g. a `url` override aimed at the Claude backend, which has none.
+        raise Denied(f"option not valid for this captioner: {exc}", status=422) from exc
 
 
 def _detector(state: State, options: dict[str, Any]):  # noqa: ANN202

@@ -6,7 +6,7 @@ thing to do.
 
 ## Where things stand
 
-**P0 through P4 are built and green.** 495 tests pass on Windows; the
+**P0 through P6 are built and green.** 623 tests pass on Windows; the
 suite is platform-neutral and both OS layouts are exercised from either
 one. What exists:
 
@@ -17,7 +17,9 @@ one. What exists:
 | `core/events.py` | `Progress` / `Log` / `LossPoint` / `Finished`, emitter combinators, cancellation |
 | `core/imaging.py` | EXIF, handle release, JPEG settings, the NEAREST mask rule |
 | `core/dataset/` | `DatasetItem`, one scanner, metadata cache, `validate` |
-| `core/dataset/ops/` | `resize`, `rename` (plan/execute, rollback), `augment`, `mask` |
+| `core/dataset/ops/` | `resize`, `rename` (plan/execute, rollback), `augment`, `mask`, `caption` |
+| `core/captioners/` | `Captioner` interface, Ollama (local, default) and Claude, behind a registry |
+| `core/analytics/loss.py` | EMA, trend, outliers, LTTB decimation - above the backend line |
 | `core/detect/` | `Detector` protocol, YuNet, null detector, registry |
 | `core/dataset/manifest.py` | Per-file size, mtime, digest; the diff sync rests on |
 | `core/dataset/archive.py` | Tar streaming, with extraction that refuses to escape |
@@ -32,9 +34,14 @@ toolkit, an HTTP framework, or a client package — and it now resolves
 relative imports, which is how a `core → daemon` reference slipped past it
 once already.
 
+The web client is built: dataset gallery, mask review, training monitor
+and settings, in `web/` (Vite + Preact + TypeScript, self-hosted fonts,
+no CDN). The daemon serves the built client, so there is one thing to
+deploy per node.
+
 **Not built:** the Klein backend (P5 — the standalone `klein_trainer/`,
-not Klein-through-ai-toolkit, which works today), `analytics/loss.py`, the
-web client (P6), the fleet view as a UI (P7). `web/` does not exist.
+not Klein-through-ai-toolkit, which works today). The fleet view is not
+being built as a node-served UI at all — see the decision below.
 
 ### FLUX.2 works
 
@@ -67,6 +74,7 @@ working tool and stays that way until this is genuinely ahead.
 | Backends | ai-toolkit (FLUX + Krea 2 as one) and Klein. Two, not four |
 | Remote | REST + SSE, localhost-bound, driven over SSH tunnels |
 | Fleet | Client-side aggregation, no coordinator |
+| Fleet **UI** | Not in the node-served client. See below |
 | Dataset storage | Node-local; manifest diff over rsync or tar |
 | UI | Browser client served by the daemon. **PyQt6 is not carried forward** |
 | Face detection | OpenCV YuNet behind a pluggable `Detector` interface |
@@ -74,12 +82,12 @@ working tool and stays that way until this is genuinely ahead.
 
 ## Open — decide before the phase that needs it
 
-Four client-stack choices, all deferrable to P6, listed in
-[10](10-graphics-stack.md#what-to-decide-before-building): framework,
-virtualizer, chart approach, icon set. The log viewer sets the
-virtualizer bar (100k lines, follow-tail, filter that changes row
-heights) and the streaming-append requirement rules out most declarative
-chart libraries.
+The four client-stack choices from
+[10](10-graphics-stack.md#what-to-decide-before-building) are made:
+Preact, TanStack Virtual, uPlot, Lucide. The log viewer deviates from
+doc 10 in one respect — rows are one line each with horizontal scroll
+rather than wrapping, because variable-height measurement of wrapped
+rows drew them on top of each other.
 
 Two product questions remain in [05](05-roadmap.md#open-questions): how
 many nodes there are and whether they are named consistently, and the
@@ -150,6 +158,33 @@ Places where the spec left room and the code had to pick:
   out of the checkpoint path, so a file named for one model trains as
   another. `core/backends/models.py` names each one with the settings that
   follow from it.
+- **The node-served client has no fleet view.** The client is served by
+  each node, so a fleet tab needs the node list from somewhere: either the
+  daemon serves it and every node then knows about every other, or the
+  browser reaches each node directly. Both break "client-side aggregation,
+  no coordinator", and since the API is remote code execution scoped to a
+  node, chaining it means one compromised UI reaches all of them. Fleet
+  aggregation stays where the node list already lives — the operator's own
+  machine, via `fk fleet status`. `fleet.toml` is read only by
+  `cli/fleet.py`; the daemon has no fleet awareness at all, and that is
+  worth keeping.
+- **`PUT /config` will not write `daemon.*` or `dataset.roots`.** Every
+  other setting is editable from the settings screen, because a caller who
+  can already launch training processes is not meaningfully restrained by
+  a mask feather. Those two are different: `dataset.roots` is the
+  allow-list every path check is measured against, and `daemon.host` is
+  what keeps the API on loopback. Widening either widens the API's reach
+  rather than changing a preference, so they are edited on the node by
+  someone with a shell on it. `GET /config` returns `read_only` so the UI
+  can say why rather than discovering it through a 403.
+- **A secret-looking config key is only a secret if its value is a
+  string.** The name test alone is a substring match, and `max_tokens`
+  contains "token". A number named after a secret is a count; refusing to
+  load a config over one would be a bug wearing a security hat.
+- **The captioner is probed once per batch, before the loop.** A stopped
+  Ollama daemon is one message, not two hundred. Five failures in a row
+  abort the run, because past a handful it is the backend that is broken
+  rather than the images.
 - **A masked run validates before it launches.** `require_masks` runs as a
   preflight, because ai-toolkit trains an image with no matching mask
   unmasked and says nothing.

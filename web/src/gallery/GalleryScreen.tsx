@@ -247,6 +247,14 @@ export function GalleryScreen({ dataset, onError, onOpenReview }: Props) {
         </button>
         <button
           class="btn"
+          onClick={() => void runOperation("caption", {})}
+          disabled={!!task}
+          title="Caption images that have none, with the configured backend"
+        >
+          Caption
+        </button>
+        <button
+          class="btn"
           onClick={() => void runOperation("detect", { only_missing: true })}
           disabled={!!task}
           title="Find faces in images that have no boxes yet"

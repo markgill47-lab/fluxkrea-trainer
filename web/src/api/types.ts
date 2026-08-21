@@ -37,6 +37,8 @@ export interface NodeInfo {
   cuda: string | null;
   driver: string | null;
   detectors: Record<string, boolean>;
+  /** Which captioners could be *built*, not whether they answer. */
+  captioners: Record<string, boolean>;
   backends: Record<string, { ready: boolean; models: string[] }>;
   gpus: Gpu[];
   disk_free: { total: number; free: number } | null;
@@ -235,4 +237,71 @@ export interface SampleImage {
   step: number;
   mtime: number;
   url: string;
+}
+
+// --------------------------------------------------------------------------
+// settings
+// --------------------------------------------------------------------------
+
+export interface CaptionerConfig {
+  provider: string;
+  ollama_url: string;
+  ollama_model: string;
+  claude_model: string;
+  prompt: string;
+  prefix: string;
+  max_tokens: number;
+  timeout: number;
+}
+
+export interface MaskConfig {
+  detector: string;
+  confidence: number;
+  expand: number;
+  expand_up: number;
+  feather: number;
+  min_value: number;
+  nms: number;
+  require_review: boolean;
+  write_previews: boolean;
+}
+
+/**
+ * The whole config, as `GET /config` returns it. `read_only` names the
+ * settings the API will refuse to write, so the UI can say *why* a field
+ * is locked rather than discovering it through a 403.
+ */
+export interface ConfigPayload {
+  dataset: Record<string, unknown>;
+  mask: MaskConfig;
+  captioner: CaptionerConfig;
+  daemon: Record<string, unknown>;
+  backends: Record<string, unknown>;
+  log_level: string;
+  source: string | null;
+  read_only: string[];
+  /** Present only on the response to a write. */
+  changed?: string[];
+  written?: string;
+  restart_required?: string[];
+}
+
+export interface CaptionerInfo {
+  name: string;
+  label: string;
+  available: boolean;
+}
+
+export interface CaptionerProbe {
+  ok: boolean;
+  message: string;
+  provider?: string;
+  /** Ollama only: what is actually pulled on the node. */
+  models?: string[];
+}
+
+export interface SecretInfo {
+  name: string;
+  found: boolean;
+  env: string[];
 }

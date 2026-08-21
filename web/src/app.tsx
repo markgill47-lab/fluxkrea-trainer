@@ -14,8 +14,23 @@ import type { Dataset, Health, NodeInfo } from "~/api/types";
 import { GalleryScreen } from "~/gallery/GalleryScreen";
 import { MonitorScreen } from "~/monitor/MonitorScreen";
 import { ReviewScreen } from "~/review/ReviewScreen";
+import { SettingsScreen } from "~/settings/SettingsScreen";
 
-type Screen = "datasets" | "review" | "training" | "fleet";
+/**
+ * The screens a *node-served* client offers.
+ *
+ * Deliberately no fleet view. The client is served by each node, so a
+ * fleet tab would need the node list from somewhere — either the daemon
+ * serves it, and every node then knows about every other, or the browser
+ * reaches each node directly. Both break doc 06's "client-side
+ * aggregation, no coordinator", and since the API is remote code execution
+ * scoped to a node, chaining it means one compromised UI reaches all of
+ * them.
+ *
+ * Fleet aggregation stays where the node list belongs: on the operator's
+ * own machine, via `fk fleet status`.
+ */
+type Screen = "datasets" | "review" | "training" | "settings";
 
 /** How often to re-check the daemon. Connection state is UI state. */
 const HEALTH_INTERVAL = 10_000;
@@ -110,8 +125,9 @@ export function App() {
         <RailItem label="Training" active={screen === "training"} onClick={() => setScreen("training")}>
           ⏵
         </RailItem>
-        <RailItem label="Fleet" active={screen === "fleet"} onClick={() => setScreen("fleet")}>
-          ⛓
+        <span class="rail__spacer" />
+        <RailItem label="Settings" active={screen === "settings"} onClick={() => setScreen("settings")}>
+          ⚙
         </RailItem>
       </nav>
 
@@ -138,12 +154,7 @@ export function App() {
 
         {screen === "training" && <MonitorScreen onError={setError} />}
 
-        {screen === "fleet" && (
-          <div class="empty">
-            <div class="empty__title">{titleOf(screen)}</div>
-            <div>Not built yet.</div>
-          </div>
-        )}
+        {screen === "settings" && <SettingsScreen onError={setError} />}
       </main>
     </div>
   );
@@ -161,9 +172,12 @@ function NoDataset() {
 }
 
 function titleOf(screen: Screen): string {
-  return { datasets: "Dataset gallery", review: "Mask review", training: "Training monitor", fleet: "Fleet" }[
-    screen
-  ];
+  return {
+    datasets: "Dataset gallery",
+    review: "Mask review",
+    training: "Training monitor",
+    settings: "Settings",
+  }[screen];
 }
 
 function RailItem({

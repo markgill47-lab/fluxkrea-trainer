@@ -18,6 +18,7 @@ operation" stays true no matter how operations are composed.
 """
 
 from .augment import TRANSFORMS, AugmentResult, Transform, augment
+from .caption import CaptionResult, caption
 from .mask import (
     DetectResult,
     ExportResult,
@@ -34,6 +35,7 @@ from .resize import ResizeResult, resize
 
 __all__ = [
     "AugmentResult",
+    "CaptionResult",
     "DetectResult",
     "ExportResult",
     "RenamePlan",
@@ -42,6 +44,7 @@ __all__ = [
     "TRANSFORMS",
     "Transform",
     "augment",
+    "caption",
     "detect_faces",
     "export_masks",
     "plan_rename",

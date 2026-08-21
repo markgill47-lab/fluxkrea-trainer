@@ -3,11 +3,12 @@
 A rewrite of the LoRA training GUI at `D:\Projects_26\AI_Image_Trainer`,
 targeting FLUX.2 Klein and Krea 2 across a distributed lab fleet.
 
-**Status: P0–P4 built and green.** The headless core, the per-node daemon
-and its API, `fk` as a real API client, and the ai-toolkit backend —
+**Status: P0–P6 built and green.** The headless core, the per-node daemon
+and its API, `fk` as a real API client, the ai-toolkit backend —
 **FLUX.2, both Klein sizes and Krea 2 train through one config-driven
-class**. The standalone Klein trainer and the web client do not exist yet.
-v1 stays the working tool until v2 can genuinely replace it.
+class** — and the browser client the daemon serves: dataset gallery, mask
+review, training monitor, settings. The standalone Klein trainer does not
+exist yet. v1 stays the working tool until v2 can genuinely replace it.
 
 ## Why rewrite
 
@@ -55,6 +56,8 @@ a client of that API rather than the thing that owns the logic. See
 | Structure | Headless core; per-node daemon exposing an HTTP API |
 | Remote control | REST + SSE, localhost-bound, driven over SSH tunnels |
 | Fleet | Client-side aggregation over a node list. No coordinator |
+| Fleet UI | **Not in the node-served client.** It would make every node know about, and reach, every other |
+| Captioning | Local vision model by default (Ollama). Claude is opt-in |
 | Dataset storage | Node-local. Sync by manifest diff over rsync or tar |
 | Platforms | Windows and Linux, equally supported |
 | Face detection | OpenCV YuNet now, behind a pluggable detector interface |
@@ -86,6 +89,7 @@ as input, not produced by it.
 pip install -e ".[dev,daemon]"
 
 fk node status                                   # versions, GPUs, detectors
+fk dataset caption ./poses                       # local vision model, no key
 fk dataset mask ./poses --expand 1.6             # detect, review, export masks/
 fk dataset validate ./poses --require-masks      # before the run, not after it
 
@@ -96,6 +100,12 @@ fk fleet status
 fk node models                                   # what this node can train
 fk train --model flux2 --dataset poses --masked --steps 2000 --watch
 ```
+
+Captioning runs on **Ollama** by default: local, no API key, and no image
+leaves the node. `fk node captioners --test` says whether it will work
+before a batch does; Claude is one setting away
+(`fk config set captioner.provider=claude`) for the sets where sending
+images out is acceptable.
 
 `fk --help` lists the rest. Every command is an API client, so the same
 one works locally and against a node over an SSH tunnel; with no daemon

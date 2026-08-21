@@ -55,14 +55,6 @@ def models(state: State = Depends(get_state)) -> dict[str, Any]:
     return {"models": listing(), "backends": state.backends()}
 
 
-@router.get("/config")
-def config(state: State = Depends(get_state)) -> dict[str, Any]:
-    """The resolved config. Never contains secrets, by construction."""
-    payload = state.config.as_dict()
-    payload["source"] = str(state.config.source) if state.config.source else None
-    return payload
-
-
 @router.get("/fs/browse")
 def browse(
     path: str | None = Query(default=None, description="folder to list; defaults to the roots"),

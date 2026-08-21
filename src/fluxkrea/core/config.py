@@ -28,6 +28,7 @@ which is also the shape the API's settings endpoint will speak.
 from __future__ import annotations
 
 import dataclasses
+import logging
 import os
 import tomllib
 import types
@@ -110,12 +111,30 @@ class MaskConfig:
 
 @dataclass(slots=True)
 class CaptionerConfig:
-    """Captioning. The API key is *not* here - see :func:`secret`."""
+    """Captioning. The API key is *not* here - see :func:`secret`.
 
-    provider: str = "claude"
-    model: str = "claude-sonnet-5"
+    ``ollama`` is the default provider. It is local, needs no key, and
+    sends nothing anywhere, which for a lab captioning its own reference
+    photography is the difference between a usable tool and an unusable
+    one. ``claude`` writes better captions and is one setting away.
+
+    The two providers keep separate model fields on purpose: switching
+    provider and back should not lose the model you had configured, which
+    a single shared ``model`` field guarantees it would.
+    """
+
+    provider: str = "ollama"
     ollama_url: str = "http://localhost:11434"
-    max_concurrent: int = 4
+    ollama_model: str = "llama3.2-vision"
+    claude_model: str = "claude-opus-5"
+    #: Empty means the built-in prompt (``captioners.DEFAULT_PROMPT``).
+    prompt: str = ""
+    #: Prepended to every caption. Where a LoRA trigger token goes.
+    prefix: str = ""
+    #: A ceiling on one caption, not a target.
+    max_tokens: int = 400
+    #: Vision models are slow on CPU and not fast on a busy GPU. Seconds.
+    timeout: float = 180.0
 
 
 @dataclass(slots=True)
@@ -319,6 +338,21 @@ def load(
     return cfg
 
 
+#: Settings that were renamed or dropped, and what to do about them.
+#: A stale key is a warning rather than a hard error - a node that has
+#: been running since before a rename should start on the rest of its
+#: config, not refuse to start at all. A key that is merely *misspelled*
+#: is still fatal, which is the distinction worth keeping.
+RETIRED: dict[str, str] = {
+    "captioner.model": (
+        "split into captioner.ollama_model and captioner.claude_model, so "
+        "switching provider no longer loses the model you had set"
+    ),
+    "captioner.provider_model": "renamed to captioner.claude_model",
+    "captioner.max_concurrent": "captioning is sequential; the setting did nothing",
+}
+
+
 def _apply_file(cfg: Config, target: Path) -> None:
     try:
         data = tomllib.loads(target.read_text(encoding="utf-8"))
@@ -334,12 +368,21 @@ def _apply_file(cfg: Config, target: Path) -> None:
             continue
         for name, value in values.items():
             dotted = f"{section}.{name}"
-            if _looks_secret(name):
+            if _looks_secret(name, value):
                 raise ConfigError(
                     f"{target}: {dotted!r} looks like a secret. "
                     "Secrets come from the environment or the OS keyring so that "
                     "this file stays safe to commit and share across the fleet."
                 )
+            if dotted in RETIRED:
+                logging.getLogger(__name__).warning(
+                    "%s: %r is no longer a setting - %s. Ignoring it; remove it "
+                    "from the file to silence this.",
+                    target,
+                    dotted,
+                    RETIRED[dotted],
+                )
+                continue
             try:
                 cfg.set(dotted, value)
             except KeyError as exc:
@@ -360,7 +403,17 @@ def _apply_env(cfg: Config, env: dict[str, str] | os._Environ[str]) -> None:
         cfg.log_level = top.strip()
 
 
-def _looks_secret(name: str) -> bool:
+def _looks_secret(name: str, value: Any = "") -> bool:
+    """Is this key/value pair a secret smuggled into the config file?
+
+    The name test alone is a substring match and therefore over-eager -
+    ``max_tokens`` contains "token" and is a length limit. The value test
+    is what separates them: a secret is always a string. A number named
+    after a secret is a count, and refusing to load a config over one
+    would be a bug wearing a security hat.
+    """
+    if not isinstance(value, str):
+        return False
     lowered = name.lower()
     return any(hint in lowered for hint in SECRET_HINTS)
 

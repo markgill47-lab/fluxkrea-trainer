@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from .. import __version__
 from ..core.config import Config, load
 from . import web
-from .routes import datasets, jobs, node, tasks
+from .routes import datasets, jobs, node, settings, tasks
 from .security import Denied, check_token, extract_token
 from .state import State
 
@@ -71,7 +71,7 @@ def create_app(config: Config | None = None, state: State | None = None) -> Fast
     async def bad_value(request: Request, exc: ValueError) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
-    for router in (node.router, datasets.router, tasks.router, jobs.router):
+    for router in (node.router, settings.router, datasets.router, tasks.router, jobs.router):
         app.include_router(router, prefix=API)
 
     @app.get("/api", include_in_schema=False)

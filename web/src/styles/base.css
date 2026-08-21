@@ -167,6 +167,10 @@ button {
   background: var(--accent-muted);
 }
 
+.rail__spacer {
+  flex: 1;
+}
+
 .content {
   grid-area: content;
   min-width: 0;

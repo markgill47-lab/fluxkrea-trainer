@@ -13,6 +13,9 @@
 
 import type {
   BoxesResponse,
+  CaptionerInfo,
+  CaptionerProbe,
+  ConfigPayload,
   Dataset,
   Health,
   ItemsResponse,
@@ -22,6 +25,7 @@ import type {
   NodeInfo,
   ReviewProgress,
   SampleImage,
+  SecretInfo,
   Task,
   ValidationReport,
 } from "./types";
@@ -231,6 +235,36 @@ export const api = {
 
   samples: (id: string, o?: RequestOptions) =>
     request<{ id: string; samples: SampleImage[] }>("GET", `/jobs/${id}/samples`, undefined, o),
+
+  // -- settings ---------------------------------------------------------
+
+  config: (o?: RequestOptions) => request<ConfigPayload>("GET", "/config", undefined, o),
+
+  /**
+   * Apply a flat map of dotted settings. Flat rather than nested so that
+   * saving one field cannot silently rewrite the rest.
+   */
+  putConfig: (values: Record<string, unknown>, o?: RequestOptions) =>
+    request<ConfigPayload>("PUT", "/config", { set: values }, o),
+
+  /** Whether each API key was found on the node. Never the values. */
+  secrets: (o?: RequestOptions) =>
+    request<{ secrets: SecretInfo[] }>("GET", "/config/secrets", undefined, o),
+
+  captioners: (o?: RequestOptions) =>
+    request<{ captioners: CaptionerInfo[]; configured: string }>(
+      "GET",
+      "/captioners",
+      undefined,
+      o,
+    ),
+
+  /**
+   * Probe a captioner. Resolves even when the backend is down — a stopped
+   * Ollama daemon is an answer, and the screen renders it either way.
+   */
+  testCaptioner: (options: Record<string, unknown> = {}, o?: RequestOptions) =>
+    request<CaptionerProbe>("POST", "/captioners/test", options, o),
 
   cancelTask: (id: string, o?: RequestOptions) =>
     request<{ id: string; cancelling: boolean }>("DELETE", `/tasks/${id}`, undefined, o),

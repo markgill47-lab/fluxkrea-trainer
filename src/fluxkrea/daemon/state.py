@@ -90,6 +90,7 @@ class State:
 
         import cv2
 
+        from ..core.captioners import available as captioners_available
         from ..core.detect import available
 
         info: dict[str, Any] = {
@@ -104,6 +105,7 @@ class State:
             "pillow": PILImage.__version__,
             "numpy": numpy.__version__,
             "detectors": available(),
+            "captioners": captioners_available(),
             "backends": self.backends(),
             "models": _model_listing(),
             "paths": paths.describe(),

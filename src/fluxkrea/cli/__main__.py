@@ -131,6 +131,16 @@ def _add_config(commands: Any, common: argparse.ArgumentParser) -> None:
     written = actions.add_parser("init", parents=[common], help="write a starter config file")
     written.add_argument("--force", action="store_true", help="overwrite an existing file")
 
+    # `set` goes through the daemon rather than editing the file directly,
+    # so that --node reaches the machine the setting is actually for.
+    setter = actions.add_parser("set", parents=[common],
+                                help="change settings on a node and save its config file")
+    setter.add_argument("pairs", nargs="+", metavar="KEY=VALUE",
+                        help="dotted setting, e.g. captioner.provider=ollama")
+
+    actions.add_parser("secrets", parents=[common],
+                       help="which API keys a node can find, and where it looked")
+
 
 def _add_node(commands: Any, common: argparse.ArgumentParser) -> None:
     node = commands.add_parser("node", help="what a node can do")
@@ -139,6 +149,12 @@ def _add_node(commands: Any, common: argparse.ArgumentParser) -> None:
                        help="platform, versions, GPUs and available detectors")
     actions.add_parser("gpus", parents=[common], help="per-GPU name, VRAM and capability")
     actions.add_parser("models", parents=[common], help="what this node can train")
+    probe = actions.add_parser("captioners", parents=[common],
+                               help="which captioners a node has, and whether one answers")
+    probe.add_argument("--test", action="store_true",
+                       help="actually probe the configured captioner - costs a round trip")
+    probe.add_argument("--provider", choices=["ollama", "claude"],
+                       help="probe this one instead of the configured one")
 
 
 def _add_dataset(commands: Any, common: argparse.ArgumentParser) -> None:
@@ -183,6 +199,19 @@ def _add_dataset(commands: Any, common: argparse.ArgumentParser) -> None:
     augment_cmd.add_argument("--rot-180", action="store_true", help="180 degrees")
     augment_cmd.add_argument("--duplicate", action="store_true", help="plain copy, no transform")
     augment_cmd.add_argument("--output", help="write to another folder instead of in place")
+
+    caption_cmd = with_target("caption", "write a .txt caption beside every image")
+    caption_cmd.add_argument("--provider", choices=["ollama", "claude"],
+                             help="captioner to use; default from config")
+    caption_cmd.add_argument("--model", help="vision model; default from config")
+    # not --url: that is the daemon's address, on every subcommand.
+    caption_cmd.add_argument("--ollama-url", help="Ollama base URL; default from config")
+    caption_cmd.add_argument("--prompt", help="what to ask the model; default from config")
+    caption_cmd.add_argument("--prefix", help="prepended to every caption - a trigger token")
+    caption_cmd.add_argument("--overwrite", action="store_true",
+                             help="re-caption images that already have one")
+    caption_cmd.add_argument("--max-tokens", type=int, help="ceiling on one caption")
+    caption_cmd.add_argument("--timeout", type=float, help="seconds to wait for one image")
 
     detect_cmd = with_target("detect", "find faces and record the boxes")
     detect_cmd.add_argument("--detector", help="detector name; default from config")
@@ -350,6 +379,24 @@ def _run_config(args: argparse.Namespace, config: Config, console: Console) -> i
             console.write(table(sorted(located.items()), headers=("location", "path")))
         return OK
 
+    if args.action in ("set", "secrets"):
+        # `config` is dispatched before main()'s client error handling,
+        # because most of its actions never touch a daemon. These two do,
+        # so they carry their own - a refused setting is a message, not a
+        # traceback.
+        try:
+            client = _client(args, config)
+        except (ApiError, ValueError, RuntimeError) as exc:
+            console.write(f"x {exc}")
+            return USAGE
+        try:
+            return _run_config_remote(args, console, client)
+        except ApiError as exc:
+            console.write(f"x {exc}")
+            return PROBLEM if exc.status in (403, 409, 422) else USAGE
+        finally:
+            client.close()
+
     from ..core.config import example_toml
 
     target = paths.config_file()
@@ -360,6 +407,65 @@ def _run_config(args: argparse.Namespace, config: Config, console: Console) -> i
     target.write_text(example_toml(), encoding="utf-8")
     console.write(f"wrote {target}")
     return OK
+
+
+def _run_config_remote(args: argparse.Namespace, console: Console, client: Client) -> int:
+    """The two config actions that belong to a node rather than to this machine."""
+    if args.action == "secrets":
+        payload = client.get("/config/secrets")
+        if args.json:
+            emit_json(payload)
+            return OK
+        console.write(
+            table(
+                [
+                    (s["name"], "found" if s["found"] else "-", ", ".join(s["env"]))
+                    for s in payload["secrets"]
+                ],
+                headers=("secret", "state", "environment variables tried"),
+            )
+        )
+        return OK
+
+    updates: dict[str, Any] = {}
+    for pair in args.pairs:
+        key, sep, value = pair.partition("=")
+        if not sep:
+            console.write(f"x {pair!r} is not KEY=VALUE")
+            return USAGE
+        updates[key.strip()] = _literal(value)
+
+    payload = client.put("/config", json_body={"set": updates})
+    if args.json:
+        emit_json(payload)
+        return OK
+
+    for key in payload.get("changed", []):
+        console.write(f"{key} = {updates[key]}")
+    console.write(f"wrote {payload.get('written')}")
+    for key in payload.get("restart_required", []):
+        console.write(f"! {key} is only read at startup - restart the daemon")
+    return OK
+
+
+def _literal(value: str) -> Any:
+    """Parse a command-line value into the type the config expects.
+
+    ``true``/``false`` and numbers are converted; everything else stays a
+    string, which the config coerces to the declared type anyway.
+    """
+    text = value.strip()
+    lowered = text.lower()
+    if lowered in ("true", "yes", "on"):
+        return True
+    if lowered in ("false", "no", "off"):
+        return False
+    for cast in (int, float):
+        try:
+            return cast(text)
+        except ValueError:
+            continue
+    return text
 
 
 def _run_serve(args: argparse.Namespace, config: Config, console: Console) -> int:
@@ -412,6 +518,40 @@ def _run_node(args: argparse.Namespace, config: Config, console: Console, client
                 headers=("#", "name", "cc", "free", "total"),
             )
         )
+        return OK
+
+    if args.action == "captioners":
+        payload = client.get("/captioners")
+        if args.test or args.provider:
+            body = {"provider": args.provider} if args.provider else {}
+            probe = client.post("/captioners/test", json_body=body)
+        else:
+            probe = {}
+
+        if args.json:
+            emit_json({**payload, "probe": probe} if probe else payload)
+            return OK
+
+        console.write(
+            table(
+                [
+                    (
+                        c["name"],
+                        c["label"],
+                        "yes" if c["available"] else "no",
+                        "*" if c["name"] == payload.get("configured") else "",
+                    )
+                    for c in payload["captioners"]
+                ],
+                headers=("name", "backend", "installed", "in use"),
+            )
+        )
+        if probe:
+            console.write("")
+            console.write(("ok  " if probe.get("ok") else "x   ") + str(probe.get("message", "")))
+            for model in probe.get("models", []):
+                console.write(f"    {model}")
+            return OK if probe.get("ok") else PROBLEM
         return OK
 
     if args.action == "models":
@@ -615,6 +755,17 @@ def _options(args: argparse.Namespace) -> dict[str, Any]:
     """Turn parsed flags into the operation payload the API expects."""
     if args.action == "resize":
         return {"size": args.size, "output": args.output, "upscale": not args.no_upscale}
+    if args.action == "caption":
+        return {
+            "provider": args.provider,
+            "model": args.model,
+            "url": args.ollama_url,
+            "prompt": args.prompt,
+            "prefix": args.prefix,
+            "overwrite": args.overwrite,
+            "max_tokens": args.max_tokens,
+            "timeout": args.timeout,
+        }
     if args.action == "rename":
         return {
             "prefix": args.prefix,
