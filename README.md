@@ -3,7 +3,10 @@
 A rewrite of the LoRA training GUI at `D:\Projects_26\AI_Image_Trainer`,
 targeting FLUX.2 Klein and Krea 2 across a distributed lab fleet.
 
-**Status: design only.** No code yet. This folder holds the plan.
+**Status: P0–P4 built and green.** The headless core, the per-node daemon
+and its API, `fk` as a real API client, and the ai-toolkit backend —
+**FLUX.2, both Klein sizes and Krea 2 train through one config-driven
+class**. The standalone Klein trainer and the web client do not exist yet.
 v1 stays the working tool until v2 can genuinely replace it.
 
 ## Why rewrite
@@ -62,7 +65,7 @@ a client of that API rather than the thing that owns the logic. See
 
 | | |
 |---|---|
-| **[00 — build handoff](docs/00-build-handoff.md)** | **Start here.** State, settled decisions, and what P0 is |
+| **[00 — build handoff](docs/00-build-handoff.md)** | **Start here.** State, settled decisions, and what is next |
 | [01 — v1 audit](docs/01-v1-audit.md) | What exists today, what carries over, what dies |
 | [02 — architecture](docs/02-architecture.md) | Core/daemon/client split, package layout, backend protocol |
 | [03 — dataset model](docs/03-dataset-model.md) | The `DatasetItem` invariant that started all this |
@@ -76,6 +79,29 @@ a client of that API rather than the thing that owns the logic. See
 
 Docs 07–10 are the design catalog — written to be handed to design work
 as input, not produced by it.
+
+## Using it
+
+```bash
+pip install -e ".[dev,daemon]"
+
+fk node status                                   # versions, GPUs, detectors
+fk dataset mask ./poses --expand 1.6             # detect, review, export masks/
+fk dataset validate ./poses --require-masks      # before the run, not after it
+
+fk serve                                         # on a lab node
+fk dataset push ./poses --to olympus-2 --sidecars-only
+fk fleet status
+
+fk node models                                   # what this node can train
+fk train --model flux2 --dataset poses --masked --steps 2000 --watch
+```
+
+`fk --help` lists the rest. Every command is an API client, so the same
+one works locally and against a node over an SSH tunnel; with no daemon
+running it starts one for the length of the command rather than taking a
+different code path. Everything runs headless on Windows and Linux, and
+nothing under `core/` imports a UI toolkit.
 
 ## Ground rules
 

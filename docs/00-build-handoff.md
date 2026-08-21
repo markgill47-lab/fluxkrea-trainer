@@ -6,11 +6,53 @@ thing to do.
 
 ## Where things stand
 
-**Design phase complete. No code exists yet.** The repository holds
-2,100 lines of specification across `docs/`, plus a rendered component
-catalog and screen compositions in `design/`.
+**P0 through P4 are built and green.** 495 tests pass on Windows; the
+suite is platform-neutral and both OS layouts are exercised from either
+one. What exists:
 
-Nothing has been built. `src/` does not exist. P0 is greenfield.
+| | |
+|---|---|
+| `core/paths.py` | Every location, OS-appropriate, all env-overridable |
+| `core/config.py` | One typed config, `defaults < file < env < flags`, secrets refused in the file |
+| `core/events.py` | `Progress` / `Log` / `LossPoint` / `Finished`, emitter combinators, cancellation |
+| `core/imaging.py` | EXIF, handle release, JPEG settings, the NEAREST mask rule |
+| `core/dataset/` | `DatasetItem`, one scanner, metadata cache, `validate` |
+| `core/dataset/ops/` | `resize`, `rename` (plan/execute, rollback), `augment`, `mask` |
+| `core/detect/` | `Detector` protocol, YuNet, null detector, registry |
+| `core/dataset/manifest.py` | Per-file size, mtime, digest; the diff sync rests on |
+| `core/dataset/archive.py` | Tar streaming, with extraction that refuses to escape |
+| `core/backends/` | `TrainingBackend` protocol, `RunSpec`, model registry |
+| `core/backends/aitoolkit.py` | **FLUX.2, Klein and Krea 2 in one config-driven class** |
+| `daemon/` | 30 endpoints, task runner, SSE, persistent job queue, token and path scoping |
+| `cli/` | `fk` — a real API client: dataset ops, push, fleet, jobs, `serve` |
+| `deploy/` | systemd user unit and deployment notes |
+
+The guard test is in place and passing: nothing under `core/` imports a UI
+toolkit, an HTTP framework, or a client package — and it now resolves
+relative imports, which is how a `core → daemon` reference slipped past it
+once already.
+
+**Not built:** the Klein backend (P5 — the standalone `klein_trainer/`,
+not Klein-through-ai-toolkit, which works today), `analytics/loss.py`, the
+web client (P6), the fleet view as a UI (P7). `web/` does not exist.
+
+### FLUX.2 works
+
+`fk train --model flux2 --dataset poses --masked` renders a config,
+launches ai-toolkit, and streams progress and loss back. Four models go
+through the one backend: `flux2`, `flux2-klein-4b`, `flux2-klein-9b` and
+`krea2`, plus `flux1` for the older stack.
+
+Verified against the real ai-toolkit rather than against our own
+expectations: `tests/backends/test_against_real_aitoolkit.py` hands each
+generated config to ai-toolkit's own `get_job` and asserts it resolves to
+an `SDTrainer` with the right architecture. Those tests skip when no
+checkout is present; point `FLUXKREA_AITOOLKIT` at one to run them.
+
+**A v1 bug found on the way.** v1 emits `arch: flux2_klein`, which is not
+an architecture ai-toolkit registers — the real ones are per size. Its
+Klein configs would fail at load. Confirmed by enumerating the arch
+strings in `extensions_built_in/diffusion_models/`.
 
 The v1 application at `D:\Projects_26\AI_Image_Trainer` is still the
 working tool and stays that way until this is genuinely ahead.
@@ -39,37 +81,78 @@ virtualizer bar (100k lines, follow-tail, filter that changes row
 heights) and the streaming-append requirement rules out most declarative
 chart libraries.
 
-Three product questions in [05](05-roadmap.md#open-questions), of which
-the one that changes near-term work is: **Klein or Krea 2 first?** The v1
-README says Klein, every recent config says Krea 2. That decides whether
-P4 or P5 comes first.
+Two product questions remain in [05](05-roadmap.md#open-questions): how
+many nodes there are and whether they are named consistently, and the
+package name. **Resolved: FLUX.2 first** — P4 shipped as the ai-toolkit
+backend, which covers FLUX.2, both Klein sizes and Krea 2 together.
 
 One design leftover: the state-surface tints are not normalised. Success,
 running, paused and several amber depths are still floating as literals
 in the screen compositions rather than tokens. Not blocking; fix before
 P6.
 
-## Start here: P0
+## Start here: a real run, then P5
 
-Scaffold only. Definition of done:
+**Point it at a real checkout and train something.** Everything below the
+GPU is proved; nothing above it is.
 
-1. `pyproject.toml`, package `fluxkrea` under `src/`.
-2. `core/paths.py` — every path resolved in one place, `pathlib`
-   throughout, no drive-letter or separator assumptions.
-3. `core/config.py` — dataclass-backed, one file, precedence
-   `defaults < file < env < flags`. Secrets from env or keyring, never
-   the file.
-4. `core/events.py` — `Progress`, `Log`, `LossPoint`, `Finished` as
-   frozen dataclasses, plus the `Emitter` type.
-5. `pytest` harness.
-6. **The guard test**: walk `core/`, fail on any UI toolkit import. This
-   is the rule the whole architecture rests on and it should exist before
-   there is anything to guard.
-7. Green on Windows and Linux both.
+```bash
+export FLUXKREA_BACKENDS_AITOOLKIT_PATH=/path/to/ai-toolkit-krea2
+export FLUXKREA_BACKENDS_PYTHON_EXE=/path/to/ai-toolkit/.venv/bin/python
+fk node models                     # the backend should read "ready"
+fk train --model flux2 --dataset poses --masked --steps 100 --watch
+```
 
-Then P1 (dataset core) and P2 (face masking), both headless. **P2 is
-where the project pays for itself** — a `masks/` folder that Krea 2
-trains against, before any UI exists.
+What a first real run will find, and no test here can: whether the step
+and loss regexes match this build's actual output, how long the Mistral
+text encoder takes to load, and whether `low_vram` is set right for the
+card. The regexes are in `core/backends/aitoolkit.py`; `OutputParser` is
+tested standalone, so a mismatch is a one-line fix plus a test.
+
+Then **P5 — the Klein backend**: porting the standalone `klein_trainer/`
+(4,165 lines) and wrapping it in the protocol. Note that Klein *through
+ai-toolkit* already works, so P5 is only worth the effort if the
+standalone trainer does something the ai-toolkit path does not.
+
+Either way, `analytics/loss.py` is the piece that pays for itself: lift
+Klein's trend detection, outliers and EMA above the backend line so every
+backend gets them from the `LossPoint` stream. The queue already keeps the
+series (`GET /jobs/{id}/loss`); nothing derives from it yet.
+
+## Decisions taken during the build
+
+Places where the spec left room and the code had to pick:
+
+- **Resize refuses to enlarge by default.** v1 conflates "smaller than the
+  target" with "corrupt" via a hard 512 floor in its validator. v2 reports
+  those images as `too_small` — not a failure — and `--upscale` opts in.
+- **Ops emit `Progress` and `Log`, never `Finished`.** The runner owning
+  the operation emits exactly one terminal event, so composing operations
+  cannot produce two.
+- **A corrupt `face_boxes.json` raises; a corrupt `metadata.json` does
+  not.** The first holds human review work, the second is a cache.
+- **The CLI never calls `core`, even with no daemon running.** Doc 02
+  forbids a divergent local path, and the usual "local mode" is exactly
+  that divergence. Instead `fk` starts the real daemon on an ephemeral
+  loopback port for the life of one command — same routes, same socket,
+  about a second of startup. `fk serve` avoids the startup.
+- **`RunSpec` lives in `core/backends/`, not in the daemon.** The backend
+  protocol takes one, and core may not reach up into its clients. The
+  daemon imports it.
+- **A `--dry-run` rename is the same endpoint.** The operation returns the
+  plan instead of executing it, rather than growing a second route that
+  could drift from the first.
+- **Resize enlarges by default.** A bucket of mixed resolutions is worse
+  for training than a few upscaled images. `--no-upscale` restores the
+  refusal, and those images are reported as `too_small` rather than
+  counted as errors.
+- **Models are named, never inferred.** v1 reads `flux`, `klein` and `4b`
+  out of the checkpoint path, so a file named for one model trains as
+  another. `core/backends/models.py` names each one with the settings that
+  follow from it.
+- **A masked run validates before it launches.** `require_masks` runs as a
+  preflight, because ai-toolkit trains an image with no matching mask
+  unmasked and says nothing.
 
 ## Things to carry in your head
 
@@ -96,6 +179,7 @@ trains against, before any UI exists.
 | `design/FluxKrea Design Catalog.dc.html` | 56 component specimens + props reference |
 | `design/FluxKrea Screens.dc.html` | Four screens, 1280 variant, edge states |
 | `design/brief-02-screens.md` | The brief that produced the screens |
+| `assets/models/face_detection_yunet_2023mar.onnx` | Vendored, 227KB. `fk node status` shows the detector ready |
 
 The `.dc.html` files need `support.js` beside them; serve the folder over
 HTTP rather than opening from disk.
