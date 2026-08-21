@@ -102,3 +102,22 @@ describe("the rest", () => {
     expect(spec.dataset).toBe("blizzard-training");
   });
 });
+
+describe("the checkpoint interval", () => {
+  it("follows the sample interval until it is set by hand", () => {
+    // The two are the moments you look at a run; a checkpoint with no
+    // sample beside it is hard to judge.
+    const spec = toSpec(form({ sampleEvery: 250, saveEvery: 800, saveEveryTouched: false }), 1000, "");
+    expect(spec.save_every).toBe(250);
+  });
+
+  it("keeps an explicit value once it has been", () => {
+    const spec = toSpec(form({ sampleEvery: 250, saveEvery: 800, saveEveryTouched: true }), 1000, "");
+    expect(spec.save_every).toBe(800);
+  });
+
+  it("starts equal to the sample default", () => {
+    expect(DEFAULTS.saveEvery).toBe(DEFAULTS.sampleEvery);
+    expect(DEFAULTS.saveEveryTouched).toBe(false);
+  });
+});

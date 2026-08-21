@@ -30,3 +30,6 @@ output/
 # Web client
 web/node_modules/
 web/dist/
+
+# Training output: checkpoints are hundreds of megabytes each.
+Output/

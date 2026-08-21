@@ -258,3 +258,22 @@ def test_an_explicit_output_is_honoured_exactly(tmp_path: Any) -> None:
     save_root = Path(os.path.join(config["process"][0]["training_folder"], config["name"]))
     assert save_root == chosen
     assert backend.config_path(spec) == chosen / "run-17.yaml"
+
+
+def test_checkpoints_default_to_the_sample_interval() -> None:
+    """A checkpoint you cannot see a sample for is hard to judge."""
+    from fluxkrea.core.backends.aitoolkit import DEFAULT_SAVE_EVERY, AIToolkitBackend
+    from fluxkrea.core.backends.spec import RunSpec
+
+    backend = AIToolkitBackend()
+
+    def save_every(**kwargs: Any) -> int:
+        config = backend.build(RunSpec(model="flux2", dataset="d", **kwargs))
+        return config["config"]["process"][0]["save"]["save_every"]
+
+    assert save_every(sample_every=400) == 400
+    # Explicit wins over both.
+    assert save_every(sample_every=400, save_every=800) == 800
+    # And with neither, something deliberately not small - checkpoints are
+    # hundreds of megabytes each.
+    assert save_every() == DEFAULT_SAVE_EVERY

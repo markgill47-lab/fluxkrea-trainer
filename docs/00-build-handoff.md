@@ -208,6 +208,17 @@ Places where the spec left room and the code had to pick:
   expected rather than where ai-toolkit puts them, which is exactly why
   that test hid the bug - `test_plan.py` now pins our folder against
   ai-toolkit's own formula.
+- **A run's folder layout is ai-toolkit's, not ours.** Checkpoints land
+  directly in `save_root` (`file_path = os.path.join(self.save_root,
+  filename)`) and samples in `save_root/samples`. Neither is configurable,
+  so `Output/<run>/checkpoints/` is not reachable without moving files
+  behind the trainer's back - which would break resume. The layout is
+  `Output/<run>/*.safetensors` plus `Output/<run>/samples/`, and the
+  generated config sits with them.
+- **Checkpoints default to the sample interval.** Those are the two
+  moments you look at a run, and a checkpoint with no sample beside it is
+  hard to judge. An explicit `save_every` wins; with neither, 500 -
+  checkpoints are hundreds of megabytes each.
 - **A failed config write says why.** Windows reports a too-long path as a
   missing file, which sends you looking for the wrong thing. The write is
   wrapped and re-raised with the length, the path, and the three ways out.
@@ -297,6 +308,11 @@ replaces the other.
 
 Two notes for whoever writes the next one:
 
+* The fake trainer in the scratchpad is a stand-in, and a stand-in that
+  ignores a setting makes that setting look broken. It hardcoded a 25-step
+  checkpoint interval, which read as the app checkpointing far too often;
+  it now honours `save_every` and `sample_every` and writes to
+  `training_folder/name` the way ai-toolkit does.
 * `tests/setup.ts` stubs `matchMedia`, `ResizeObserver`, `EventSource` and
   a canvas context at **module scope**, not in a hook. uPlot reads
   `matchMedia` while being imported, so a stub installed in `beforeEach`

@@ -35,6 +35,9 @@ export interface FormState {
   networkDim: number;
   networkAlpha: number;
   saveEvery: number;
+  /** Set once the save interval is edited by hand; until then it follows
+   *  the sample interval. */
+  saveEveryTouched: boolean;
   scheduler: string;
   resolution: number;
   batchSize: number;
@@ -59,7 +62,8 @@ export const DEFAULTS: FormState = {
   learningRate: 0.0002,
   networkDim: 32,
   networkAlpha: 16,
-  saveEvery: 800,
+  saveEvery: 400,
+  saveEveryTouched: false,
   // cosine by default: doc 05's note is that constant can diverge on long
   // runs, and the long runs are the expensive ones to lose.
   scheduler: "cosine",
@@ -102,7 +106,7 @@ export function toSpec(form: FormState, steps: number, maskPath: string): Record
     mask_path: form.masked ? maskPath : "",
     mask_min_value: form.maskMin,
     sample_every: prompts.length ? form.sampleEvery : 0,
-    save_every: form.saveEvery,
+    save_every: form.saveEveryTouched ? form.saveEvery : form.sampleEvery,
     // A fixed seed makes samples comparable across checkpoints; a random
     // one shows what the network does rather than what one noise map does.
     seed: form.randomSeed ? null : form.seed,
@@ -182,6 +186,11 @@ export function TrainForm({
   useEffect(() => {
     void refreshPlan();
   }, [refreshPlan]);
+
+  // Checkpoints follow the sample interval until someone says otherwise:
+  // the two are the moments you look at a run, and a checkpoint with no
+  // sample beside it is hard to judge. Editing the field detaches it.
+  const saveEvery = form.saveEveryTouched ? form.saveEvery : form.sampleEvery;
 
   const steps = plan?.steps ?? 0;
   const chosenDataset = datasets.find((entry) => entry.id === form.dataset);
@@ -312,8 +321,20 @@ export function TrainForm({
         <Row label="Batch size">
           <Num value={form.batchSize} min={1} disabled={disabled} onInput={(v) => set("batchSize", v)} />
         </Row>
-        <Row label="Save every N steps" hint={countHint(steps, form.saveEvery, "checkpoint")}>
-          <Num value={form.saveEvery} min={1} disabled={disabled} onInput={(v) => set("saveEvery", v)} />
+        <Row
+          label="Save every N steps"
+          hint={
+            form.saveEveryTouched
+              ? countHint(steps, saveEvery, "checkpoint")
+              : `following the sample interval — ${countHint(steps, saveEvery, "checkpoint") || "edit to set it separately"}`
+          }
+        >
+          <Num
+            value={saveEvery}
+            min={1}
+            disabled={disabled}
+            onInput={(v) => setForm((current) => ({ ...current, saveEvery: v, saveEveryTouched: true }))}
+          />
         </Row>
         <Row label="LR scheduler" hint="cosine is safe; constant can diverge on long runs">
           <select
