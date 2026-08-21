@@ -198,6 +198,16 @@ Places where the spec left room and the code had to pick:
   past MAX_PATH, which surfaces as `FileNotFoundError` on a file the code
   had just tried to create. `core/backends/spec.py::run_name` is now the
   only derivation, and `config_path` sits inside the run's own output.
+- **ai-toolkit appends the job name to `training_folder` itself**
+  (`BaseTrainProcess.py:45`: `save_root = join(training_folder, name)`), so
+  handing it the run's own folder wrote checkpoints and samples to
+  `runs/<name>/<name>/` - one level below everything that looks for them,
+  including the monitor's sample strip. It gets the *parent* now, and
+  `AIToolkitBackend.output_folder()` is the one answer to "where does this
+  run write". The fake trainer in `tests/` wrote samples where they were
+  expected rather than where ai-toolkit puts them, which is exactly why
+  that test hid the bug - `test_plan.py` now pins our folder against
+  ai-toolkit's own formula.
 - **A failed config write says why.** Windows reports a too-long path as a
   missing file, which sends you looking for the wrong thing. The write is
   wrapped and re-raised with the length, the path, and the three ways out.

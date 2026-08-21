@@ -194,3 +194,67 @@ def test_an_explicit_name_wins_and_is_slugged() -> None:
 
     spec = RunSpec(model="flux2", dataset="D:/data/poses", name="Mara v3")
     assert run_name(spec) == "mara-v3"
+
+
+# --------------------------------------------------------------------------
+# where a run writes
+# --------------------------------------------------------------------------
+
+
+def test_ai_toolkit_resolves_our_output_folder_as_its_save_root(tmp_path: Any) -> None:
+    """The formula is ai-toolkit's, copied from its source.
+
+        BaseTrainProcess.py:45
+        self.save_root = os.path.join(self.training_folder, self.name)
+
+    It appends the job name itself, so handing it the run's own folder put
+    checkpoints and samples in `runs/<name>/<name>/` - one level below
+    everything that looks for them, including the monitor's sample strip.
+    The fake trainer used in tests wrote them where they were expected,
+    which is exactly why this needs pinning against the real formula.
+    """
+    import os
+    from pathlib import Path
+
+    from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
+    from fluxkrea.core.backends.spec import RunSpec
+
+    backend = AIToolkitBackend(output_root=tmp_path / "runs")
+    spec = RunSpec(model="flux2", dataset="D:/data/Blizzard_Training", steps=10)
+
+    config = backend.build(spec)["config"]
+    process = config["process"][0]
+    save_root = Path(os.path.join(process["training_folder"], config["name"]))
+
+    assert save_root == backend.output_folder(spec)
+
+
+def test_the_run_folder_is_not_doubled(tmp_path: Any) -> None:
+    from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
+    from fluxkrea.core.backends.spec import RunSpec
+
+    backend = AIToolkitBackend(output_root=tmp_path / "runs")
+    spec = RunSpec(model="flux2", dataset="D:/data/Blizzard_Training", steps=10)
+
+    folder = backend.output_folder(spec)
+    assert folder.name != folder.parent.name
+
+
+def test_an_explicit_output_is_honoured_exactly(tmp_path: Any) -> None:
+    """Whatever folder the caller names is the folder the run writes to."""
+    import os
+    from pathlib import Path
+
+    from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
+    from fluxkrea.core.backends.spec import RunSpec
+
+    chosen = tmp_path / "somewhere" / "run-17"
+    backend = AIToolkitBackend(output_root=tmp_path / "runs")
+    spec = RunSpec(
+        model="flux2", dataset="D:/data/poses", output=chosen.as_posix(), steps=10
+    )
+
+    config = backend.build(spec)["config"]
+    save_root = Path(os.path.join(config["process"][0]["training_folder"], config["name"]))
+    assert save_root == chosen
+    assert backend.config_path(spec) == chosen / "run-17.yaml"

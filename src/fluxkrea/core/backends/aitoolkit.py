@@ -210,6 +210,17 @@ class AIToolkitBackend:
             raise BackendError(_write_failure(target, exc)) from exc
         return target
 
+    def output_folder(self, run: RunSpec) -> Path:
+        """Where this run writes: checkpoints, samples and its own config.
+
+        The same folder ai-toolkit resolves as ``save_root``, which is what
+        makes the sample strip and the checkpoint list find anything.
+        """
+        if run.output:
+            return paths.expand(run.output)
+        root = self.output_root or paths.runs_dir()
+        return paths.expand(root) / self.run_name(run)
+
     def config_path(self, run: RunSpec) -> Path:
         """Beside the run's own output, not in a folder of its own.
 
@@ -218,11 +229,8 @@ class AIToolkitBackend:
         produced. It used to derive its own folder, which could - and did -
         differ from the one the run actually wrote into.
         """
-        name = self.run_name(run)
-        folder = paths.expand(run.output) if run.output else (
-            paths.expand(self.output_root or paths.runs_dir()) / name
-        )
-        return folder / f"{name}.yaml"
+        folder = self.output_folder(run)
+        return folder / f"{folder.name}.yaml"
 
     def run_name(self, run: RunSpec) -> str:
         return spec_run_name(run)
@@ -230,10 +238,18 @@ class AIToolkitBackend:
     def build(self, run: RunSpec, model: Model | None = None) -> dict[str, Any]:
         """The config, as a dict. Split out so a test can read it."""
         model = model or get_model(run.model)
-        name = self.run_name(run)
-        output = paths.expand(run.output) if run.output else (
-            (self.output_root or paths.runs_dir()) / name
-        )
+        output = self.output_folder(run)
+
+        # ai-toolkit appends the job name to `training_folder` itself:
+        #
+        #   BaseTrainProcess.py:45
+        #   self.save_root = os.path.join(self.training_folder, self.name)
+        #
+        # so handing it the run's own folder produced
+        # `runs/<name>/<name>/`, with checkpoints and samples one level
+        # below everything that looks for them. Give it the parent and let
+        # it build the folder, so `save_root` *is* the run's output folder.
+        name = output.name
 
         return {
             "job": "extension",
@@ -242,7 +258,7 @@ class AIToolkitBackend:
                 "process": [
                     {
                         "type": "sd_trainer",
-                        "training_folder": output.as_posix(),
+                        "training_folder": output.parent.as_posix(),
                         "device": f"cuda:{run.device}",
                         "model": self._model_block(run, model),
                         "network": self._network_block(run, model),
