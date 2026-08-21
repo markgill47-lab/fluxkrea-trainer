@@ -163,6 +163,8 @@ def test_the_generated_config_is_what_gets_launched(tmp_path: Path) -> None:
         toolkit_with("import sys; print('CONFIG=' + sys.argv[1])", tmp_path),
         python_exe=sys.executable,
         output_root=tmp_path / "runs",
+        # Krea 2 has no public repo; a run of it names its own checkpoint.
+        model_paths={"krea2": "D:/weights/krea2_raw.safetensors"},
     )
     spec = RunSpec(model="krea2", dataset=str(tmp_path), name="probe", steps=1)
     config_path = backend.generate_config(spec)

@@ -167,6 +167,14 @@ class BackendsConfig:
     python_exe: str = ""
     #: Where generated configs and checkpoints land. Empty means ``runs_dir``.
     output_root: Path | None = None
+    #: Model id -> local weights, for a node that already has them. Without
+    #: an entry a run uses the model's HuggingFace repo and downloads it,
+    #: which is right for a fresh node and wasteful for one with 26GB of
+    #: checkpoints already sitting in a ComfyUI folder.
+    model_paths: dict[str, str] = field(default_factory=dict)
+    #: A ComfyUI install to look in for weights already downloaded. Saves
+    #: fetching a second copy of a 26GB checkpoint that is already here.
+    comfyui_path: Path | None = None
 
 
 @dataclass(slots=True)

@@ -21,7 +21,14 @@ from fluxkrea.core.events import Collector, LossPoint, Progress
 
 @pytest.fixture
 def backend(tmp_path: Path) -> AIToolkitBackend:
-    return AIToolkitBackend(tmp_path / "ai-toolkit", output_root=tmp_path / "runs")
+    # Krea 2 has no public repo, so a node that can build a Krea 2 config
+    # is a node that was told where the checkpoint is. Giving the fixture
+    # one keeps these tests about config shape rather than about weights.
+    return AIToolkitBackend(
+        tmp_path / "ai-toolkit",
+        output_root=tmp_path / "runs",
+        model_paths={"krea2": "D:/weights/krea2_raw.safetensors"},
+    )
 
 
 def spec_for(model: str = "flux2", **kwargs) -> RunSpec:
@@ -245,15 +252,29 @@ def test_parses_a_tqdm_bar() -> None:
 
 
 def test_parses_loss_including_scientific_notation() -> None:
+    """Both shapes ai-toolkit prints: `loss: 3.698e-01` and `loss=0.2431`."""
     collector = Collector()
     parser = OutputParser(collector)
 
     parser("step: 10/100 loss: 3.698e-01")
-    parser("loss=0.2431")
+    parser("step: 11/100 loss=0.2431")
+    parser.flush()
 
-    values = [e.value for e in collector.of(LossPoint)]
-    assert values == pytest.approx([0.3698, 0.2431])
-    assert collector.of(LossPoint)[0].step == 10, "loss is attributed to the current step"
+    points = collector.of(LossPoint)
+    assert [e.value for e in points] == pytest.approx([0.3698, 0.2431])
+    assert [e.step for e in points] == [10, 11], "loss is attributed to its step"
+
+
+def test_two_losses_at_one_step_keep_the_last() -> None:
+    """One point per step: a repainted bar is not a second measurement."""
+    collector = Collector()
+    parser = OutputParser(collector)
+
+    parser("step: 10/100 loss: 0.9")
+    parser("step: 10/100 loss: 0.4")
+    parser.flush()
+
+    assert [(e.step, e.value) for e in collector.of(LossPoint)] == [(10, 0.4)]
 
 
 def test_a_bar_for_something_else_does_not_move_the_run() -> None:

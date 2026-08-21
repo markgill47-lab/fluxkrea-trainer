@@ -257,7 +257,9 @@ def test_an_explicit_output_is_honoured_exactly(tmp_path: Any) -> None:
     config = backend.build(spec)["config"]
     save_root = Path(os.path.join(config["process"][0]["training_folder"], config["name"]))
     assert save_root == chosen
-    assert backend.config_path(spec) == chosen / "run-17.yaml"
+    from fluxkrea.core.backends.aitoolkit import CONFIG_FILENAME
+
+    assert backend.config_path(spec) == chosen / CONFIG_FILENAME
 
 
 def test_checkpoints_default_to_the_sample_interval() -> None:
@@ -277,3 +279,72 @@ def test_checkpoints_default_to_the_sample_interval() -> None:
     # And with neither, something deliberately not small - checkpoints are
     # hundreds of megabytes each.
     assert save_every() == DEFAULT_SAVE_EVERY
+
+
+def test_our_config_cannot_be_mistaken_for_a_checkpoint_to_resume_from() -> None:
+    """ai-toolkit resumes from anything matching `{job_name}*` in the run
+    folder, and calls `torch.load` on it:
+
+        BaseSDTrainProcess.py:816
+        patterns = [f"{name}*{post}.safetensors", f"{name}*{post}.pt", f"{name}*{post}"]
+
+    Our config used to be `<run>.yaml` in exactly that folder, so a real
+    run announced "RESUMING FROM ... .yaml" and died unpickling it. Run
+    names are slugs - [a-z0-9-], no leading punctuation - so a filename
+    starting with `_` is outside the pattern for every possible name.
+    """
+    import fnmatch
+
+    from fluxkrea.core.backends.aitoolkit import CONFIG_FILENAME
+    from fluxkrea.core.dataset.naming import slug
+
+    assert CONFIG_FILENAME.startswith("_")
+    # And ai-toolkit's own copy of the resolved config is not us.
+    assert CONFIG_FILENAME != "config.yaml"
+
+    for raw in ("klein4b smoke", "_fluxkrea", "Mara v3", "fluxkrea", "a"):
+        name = slug(raw)
+        for pattern in (f"{name}*.safetensors", f"{name}*.pt", f"{name}*"):
+            assert not fnmatch.fnmatch(CONFIG_FILENAME, pattern), (name, pattern)
+
+
+def test_one_loss_point_per_step() -> None:
+    """tqdm repaints its bar, sometimes with a new counter and a stale
+    postfix. A real 40-step Klein 4B run produced 78 points, each value
+    appearing once at step N and again at N+1.
+    """
+    from fluxkrea.core.backends.aitoolkit import OutputParser
+    from fluxkrea.core.events import Collector
+
+    collector = Collector()
+    parser = OutputParser(collector, total=20)
+
+    # Exactly the shape the real run produced: the counter moves on before
+    # the postfix does.
+    for line in (
+        " 5%|5    | 1/20 [00:03<01:02, loss: 6.232e-01]",
+        " 5%|5    | 1/20 [00:03<01:02, loss: 5.910e-01]",
+        "10%|#    | 2/20 [00:06<00:59, loss: 5.910e-01]",
+        "10%|#    | 2/20 [00:06<00:59, loss: 5.500e-01]",
+    ):
+        parser(line)
+    parser.flush()
+
+    losses = [e for e in collector.events if e.__class__.__name__ == "LossPoint"]
+    # The last value seen while each step was current, once each.
+    assert [(e.step, e.value) for e in losses] == [(1, 0.5910), (2, 0.5500)]
+
+
+def test_the_final_step_is_not_lost_when_the_process_ends() -> None:
+    """The last step never advances, so its loss needs an explicit flush."""
+    from fluxkrea.core.backends.aitoolkit import OutputParser
+    from fluxkrea.core.events import Collector
+
+    collector = Collector()
+    parser = OutputParser(collector, total=2)
+    parser("| 2/2 [00:06<00:00, loss: 4.200e-01]")
+    assert not [e for e in collector.events if e.__class__.__name__ == "LossPoint"]
+
+    parser.flush()
+    losses = [e for e in collector.events if e.__class__.__name__ == "LossPoint"]
+    assert [(e.step, e.value) for e in losses] == [(2, 0.42)]

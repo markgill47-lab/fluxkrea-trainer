@@ -19,7 +19,9 @@ falling through to a default (doc 01).
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +44,20 @@ class Model:
     #: Guidance-distilled models want a higher scale at sample time.
     guidance_scale: float = 4.0
     sample_steps: int = 28
+    #: What ai-toolkit loads. A HuggingFace repo id is the portable
+    #: default; a node with the weights already on disk overrides it with
+    #: ``backends.model_paths`` or ``extra.model_path``, which is a local
+    #: ``.safetensors`` file rather than a repo.
+    #:
+    #: Without this, ``name_or_path`` fell back to the model *id* - the
+    #: literal string "flux2" - which is not something anything can load.
+    #: Nothing caught it, because a config-shape test only proves the key
+    #: is present and `get_job` does not fetch weights.
+    repo: str = ""
+    #: Filenames this model's weights go by on disk, most specific first.
+    #: Used to find a checkpoint already sitting in a ComfyUI folder rather
+    #: than downloading a second copy of it.
+    weight_globs: tuple[str, ...] = field(default_factory=tuple)
     #: Text encoder and VAE the arch pulls in, for ``fk node status`` to
     #: report and for a human to recognise what a run will download.
     text_encoder: str = ""
@@ -57,6 +73,7 @@ class Model:
             "id": self.id,
             "arch": self.arch,
             "label": self.label,
+            "repo": self.repo,
             "network_dim": self.network_dim,
             "network_alpha": self.network_alpha,
             "low_vram": self.low_vram,
@@ -66,12 +83,44 @@ class Model:
         }
 
 
+#: Where ComfyUI keeps diffusion weights, newest layout first.
+COMFY_SUBDIRS = ("models/diffusion_models", "models/unet", "diffusion_models", "unet")
+
+
+def find_local_weights(model: Model, roots: Iterable[str | Path]) -> Path | None:
+    """A checkpoint for *model* already on this node, or None.
+
+    Carried from v1, including the part that is not obvious: **prefer the
+    full-precision file over an fp8 one**. An fp8 checkpoint is for
+    inference; training from it starts from a quantised copy of the
+    weights, and the LoRA learns the quantisation as well as the subject.
+    """
+    for root in roots:
+        base = Path(root).expanduser()
+        if not base.is_dir():
+            continue
+        for subdir in COMFY_SUBDIRS:
+            folder = base / subdir if (base / subdir).is_dir() else base
+            if not folder.is_dir():
+                continue
+            for pattern in model.weight_globs:
+                matches = sorted(
+                    folder.glob(pattern),
+                    key=lambda path: ("fp8" in path.name.lower(), path.name),
+                )
+                if matches:
+                    return matches[0]
+    return None
+
+
 #: Every model the ai-toolkit backend can train. The arch strings are the
 #: ones ai-toolkit actually registers - checked against
 #: ``extensions_built_in/diffusion_models/``, not guessed.
 MODELS: tuple[Model, ...] = (
     Model(
         id="flux2",
+        repo="black-forest-labs/FLUX.2-dev",
+        weight_globs=('*flux*2*dev*.safetensors',),
         arch="flux2",
         label="FLUX.2 dev",
         network_dim=32,
@@ -84,6 +133,8 @@ MODELS: tuple[Model, ...] = (
     ),
     Model(
         id="flux2-klein-4b",
+        repo="black-forest-labs/FLUX.2-klein-base-4B",
+        weight_globs=('*klein*base*4b*.safetensors', '*klein*4b*.safetensors'),
         arch="flux2_klein_4b",
         label="FLUX.2 Klein 4B",
         network_dim=32,
@@ -96,6 +147,8 @@ MODELS: tuple[Model, ...] = (
     ),
     Model(
         id="flux2-klein-9b",
+        repo="black-forest-labs/FLUX.2-klein-base-9B",
+        weight_globs=('*klein*base*9b*.safetensors', '*klein*9b*.safetensors'),
         arch="flux2_klein_9b",
         label="FLUX.2 Klein 9B",
         network_dim=32,
@@ -109,6 +162,10 @@ MODELS: tuple[Model, ...] = (
     Model(
         id="krea2",
         arch="krea2",
+        # No public repo: Krea 2 is a local checkpoint here, so a run must
+        # be told where it is - backends.model_paths or extra.model_path.
+        repo="",
+        weight_globs=("*krea2*.safetensors", "*krea*2*.safetensors"),
         label="Krea 2",
         network_dim=32,
         network_alpha=32,
@@ -120,6 +177,8 @@ MODELS: tuple[Model, ...] = (
     ),
     Model(
         id="flux1",
+        repo="black-forest-labs/FLUX.1-dev",
+        weight_globs=('*flux*1*dev*.safetensors', 'flux1*.safetensors'),
         arch="",
         label="FLUX.1 dev",
         is_flux=True,

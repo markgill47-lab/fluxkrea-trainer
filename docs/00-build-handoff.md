@@ -45,7 +45,25 @@ deploy per node.
 not Klein-through-ai-toolkit, which works today). The fleet view is not
 being built as a node-served UI at all — see the decision below.
 
-### FLUX.2 works
+### FLUX.2 trains, for real
+
+Verified on Vulcan (RTX 5090) against the real ai-toolkit checkout at
+`AI_Image_Trainer/ai-toolkit-krea2`, not the test double: FLUX.2 Klein 4B,
+47 images, 40 steps at 512, loss parsed, samples rendered, a 92MB LoRA
+written. What a first real run found, and no test had:
+
+* **`name_or_path` was the model *id*.** The registry had no reference to
+  actual weights, so a run asked the trainer to load a model called
+  "flux2". Models now carry their HuggingFace repo, `backends.model_paths`
+  overrides per node, and `backends.comfyui_path` finds a checkpoint
+  already on disk - preferring the full-precision file over an fp8 one,
+  which is v1's lesson: fp8 is for inference, and training from it teaches
+  the LoRA the quantisation.
+* **Our config filename collided with ai-toolkit's resume glob.** See the
+  decision list.
+* **Loss was double-counted.** See the decision list.
+
+### FLUX.2 config generation
 
 `fk train --model flux2 --dataset poses --masked` renders a config,
 launches ai-toolkit, and streams progress and loss back. Four models go
@@ -208,6 +226,23 @@ Places where the spec left room and the code had to pick:
   expected rather than where ai-toolkit puts them, which is exactly why
   that test hid the bug - `test_plan.py` now pins our folder against
   ai-toolkit's own formula.
+- **Nothing we write into a run folder may start with the run name.**
+  ai-toolkit decides whether to resume by globbing `{job_name}*` in that
+  folder and calling `torch.load` on the newest match
+  (`get_latest_save_path`, BaseSDTrainProcess.py:816). Our config was
+  `<run>.yaml`, so the first real run announced "RESUMING FROM
+  ..._fluxkrea.yaml" and died unpickling YAML. It is `_fluxkrea.yaml` now:
+  a run name is a slug, `[a-z0-9-]` with no leading punctuation, so a
+  leading underscore is outside that pattern for every possible name.
+  `config.yaml` was not available - that is ai-toolkit's own copy.
+- **One loss point per step, buffered and flushed.** ai-toolkit reports
+  loss in a tqdm postfix, and tqdm repaints the bar several times per step
+  - sometimes with an incremented counter and a stale postfix. Emitting on
+  every match gave a real 40-step run 78 points, each value appearing at
+  step N and again at N+1, which doubles the weight of every measurement
+  in the EMA and the outlier fences. The loss is held and emitted when the
+  step advances, with an explicit `flush()` when the process ends so the
+  last step is not lost.
 - **A run's folder layout is ai-toolkit's, not ours.** Checkpoints land
   directly in `save_root` (`file_path = os.path.join(self.save_root,
   filename)`) and samples in `save_root/samples`. Neither is configurable,

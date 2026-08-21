@@ -52,6 +52,19 @@ RUNNER = "run.py"
 #: datasets here are small enough that one pass is not a meaningful epoch.
 DEFAULT_REPEATS = 10
 
+#: Our generated config, inside the run's own folder.
+#:
+#: **The leading underscore is load-bearing.** ai-toolkit decides whether
+#: to resume by globbing ``{job_name}*`` in the run folder and calling
+#: ``torch.load`` on whatever it finds (``get_latest_save_path``,
+#: BaseSDTrainProcess.py:816). Naming this ``<run>.yaml`` put a YAML file
+#: directly in that glob's path: the trainer announced "RESUMING FROM
+#: ...yaml" and died unpickling it. A run name is a slug - ``[a-z0-9-]``,
+#: never leading punctuation - so a name starting with ``_`` cannot be
+#: matched by that pattern for any run. ``config.yaml`` is taken; that is
+#: ai-toolkit's own copy of the resolved config.
+CONFIG_FILENAME = "_fluxkrea.yaml"
+
 #: Only when neither a save interval nor a sample interval was given.
 #: Checkpoints are hundreds of megabytes each, so this is deliberately not
 #: small.
@@ -97,9 +110,23 @@ class OutputParser:
         self.step = 0
         self.total = total
         self.loss: float | None = None
+        #: The loss seen while the current step was current, not yet
+        #: emitted. See :meth:`__call__` for why this is buffered.
+        self._pending: float | None = None
+        self._pending_step = 0
 
     def __call__(self, line: str) -> bool:
-        """Handle one line. Returns True if the raw line need not be logged."""
+        """Handle one line. Returns True if the raw line need not be logged.
+
+        **One loss point per step.** ai-toolkit reports loss in a tqdm
+        postfix, and tqdm repaints that bar several times per step -
+        sometimes with an incremented counter but a stale postfix. Emitting
+        on every match gave a real 40-step run 78 points, each value
+        appearing once at step N and again at N+1. The loss is therefore
+        buffered and flushed when the step advances, so a point means "the
+        last loss reported while this step was current" rather than "a line
+        happened to be repainted".
+        """
         redrawn_bar = False
 
         for index, pattern in enumerate(STEP_PATTERNS):
@@ -110,6 +137,8 @@ class OutputParser:
                 # accept one that matches the run we are actually tracking.
                 if self.total and total != self.total:
                     break
+                if step != self.step:
+                    self._flush()
                 self.step, self.total = step, total or self.total
                 self.emit(Progress(step=self.step, total=self.total, message="Training"))
                 # Patterns 1 and 2 are tqdm redrawing itself. Suppressing
@@ -126,13 +155,23 @@ class OutputParser:
                 value = None
             if value is not None:
                 self.loss = value
-                self.emit(LossPoint(step=self.step, value=value))
+                self._pending, self._pending_step = value, self.step
 
         if any(marker in line for marker in TROUBLE):
             self.emit(Log(line=line, level="error"))
             return True
 
         return redrawn_bar
+
+    def flush(self) -> None:
+        """Emit the last step's loss. Called when the process ends."""
+        self._flush()
+
+    def _flush(self) -> None:
+        if self._pending is None:
+            return
+        self.emit(LossPoint(step=self._pending_step, value=self._pending))
+        self._pending = None
 
     def progress(self) -> BackendProgress:
         return BackendProgress(step=self.step, total=self.total, message="Training")
@@ -154,10 +193,14 @@ class AIToolkitBackend:
         *,
         python_exe: str = "",
         output_root: str | os.PathLike[str] | None = None,
+        model_paths: dict[str, str] | None = None,
+        weight_roots: tuple[str, ...] = (),
     ) -> None:
         self.toolkit_path = paths.expand(toolkit_path) if toolkit_path else None
         self.python_exe = python_exe
         self.output_root = paths.expand(output_root) if output_root else None
+        self.model_paths = dict(model_paths or {})
+        self.weight_roots = tuple(weight_roots)
         self._runner: ProcessRunner | None = None
         self._parser: OutputParser | None = None
         self._lock = threading.Lock()
@@ -169,6 +212,10 @@ class AIToolkitBackend:
             config.backends.aitoolkit_path,
             python_exe=config.backends.python_exe,
             output_root=config.backends.output_root,
+            model_paths=dict(getattr(config.backends, "model_paths", {}) or {}),
+            weight_roots=tuple(
+                str(p) for p in (getattr(config.backends, "comfyui_path", None),) if p
+            ),
         )
 
     # -- dispatch ---------------------------------------------------------
@@ -234,8 +281,7 @@ class AIToolkitBackend:
         produced. It used to derive its own folder, which could - and did -
         differ from the one the run actually wrote into.
         """
-        folder = self.output_folder(run)
-        return folder / f"{folder.name}.yaml"
+        return self.output_folder(run) / CONFIG_FILENAME
 
     def run_name(self, run: RunSpec) -> str:
         return spec_run_name(run)
@@ -276,9 +322,37 @@ class AIToolkitBackend:
             },
         }
 
+    def weights_for(self, run: RunSpec, model: Model) -> str:
+        """What ai-toolkit should load, most specific first.
+
+        A run's own override, then this node's local copy, then the model's
+        HuggingFace repo. Falling through to the model *id* - which is what
+        used to happen - hands the trainer the string "flux2" and asks it
+        to find a model by that name.
+        """
+        explicit = str(run.extra.get("model_path") or "").strip()
+        if explicit:
+            return explicit
+        local = str(self.model_paths.get(model.id) or "").strip()
+        if local:
+            return local
+
+        from .models import find_local_weights
+
+        found = find_local_weights(model, self.weight_roots)
+        if found:
+            return found.as_posix()
+
+        if model.repo:
+            return model.repo
+        raise BackendError(
+            f"{model.id} has no weights on this node and no public repo to fetch. "
+            f"Set backends.model_paths.{model.id} to the checkpoint file."
+        )
+
     def _model_block(self, run: RunSpec, model: Model) -> dict[str, Any]:
         block: dict[str, Any] = {
-            "name_or_path": _posix(run.extra.get("model_path") or run.model),
+            "name_or_path": _posix(self.weights_for(run, model)),
             "is_flux": model.is_flux,
             "quantize": bool(run.extra.get("quantize", True)),
             "quantize_te": bool(run.extra.get("quantize_te", True)),
@@ -426,6 +500,7 @@ class AIToolkitBackend:
 
         emit(Log(line=f"Starting ai-toolkit: {config_path.name}"))
         code = runner.run(emit, cancel, on_line=parser)
+        parser.flush()
 
         with self._lock:
             self._runner = None
@@ -435,6 +510,12 @@ class AIToolkitBackend:
             return
         if code != 0:
             raise BackendError(f"ai-toolkit exited with code {code}")
+
+        # tqdm's last redraw is often one short of the total - a real
+        # 20-step run reported 19/20 on completion. The run finished every
+        # step it was asked for, and the progress should say so.
+        if parser.total and parser.step < parser.total:
+            emit(Progress(step=parser.total, total=parser.total, message="Training"))
 
     def stop(self) -> None:
         with self._lock:
