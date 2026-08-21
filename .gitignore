@@ -26,3 +26,7 @@ htmlcov/
 # Generated training configs and run outputs, if anyone points them here
 runs/
 output/
+
+# Web client
+web/node_modules/
+web/dist/

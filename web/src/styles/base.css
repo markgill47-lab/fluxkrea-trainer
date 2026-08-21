@@ -1,0 +1,288 @@
+/* Base and shell styles.
+ *
+ * Every value here comes from tokens.css. Doc 07: tokens are CSS custom
+ * properties so the theme is inspectable and swappable without a rebuild,
+ * and there is no runtime CSS-in-JS anywhere.
+ *
+ * FONTS: doc 07 wants Inter and JetBrains Mono self-hosted — lab nodes may
+ * be offline and the daemon is the only thing serving assets. The woff2
+ * files are not vendored yet, so the fallback stacks below are what render
+ * today. Drop them in web/public/fonts/ and add @font-face to close this.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-ui, Inter), "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* the shell never scrolls; content regions do */
+}
+
+/* Numbers that update in place must not jitter (doc 07). */
+.tabular,
+.mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--font-mono, "JetBrains Mono"), Consolas, "Cascadia Mono", monospace;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Doc 10: prefers-reduced-motion honoured throughout. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   app shell — doc 09
+   -------------------------------------------------------------------------- */
+
+.shell {
+  display: grid;
+  grid-template-rows: 44px 1fr;
+  grid-template-columns: 48px 1fr;
+  grid-template-areas:
+    "top top"
+    "rail content";
+  height: 100%;
+}
+
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar__brand {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.topbar__spacer {
+  flex: 1;
+}
+
+.node-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+/* Connection state is UI state (doc 10) — over a tunnel you check it. */
+.conn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.conn__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--state-queued);
+}
+
+.conn--up .conn__dot {
+  background: var(--state-success);
+}
+.conn--down .conn__dot {
+  background: var(--state-error);
+}
+.conn--down {
+  color: var(--state-error);
+}
+
+.rail {
+  grid-area: rail;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-top: 8px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+}
+
+.rail__item {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+}
+
+.rail__item:hover {
+  color: var(--text-secondary);
+  background: var(--bg-raised);
+}
+
+.rail__item[aria-current="page"] {
+  color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.content {
+  grid-area: content;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   generic pieces
+   -------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn--accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #05121f;
+  font-weight: 600;
+}
+
+.btn--accent:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.chip--warn {
+  background: color-mix(in srgb, var(--state-warning) 18%, transparent);
+  border-color: color-mix(in srgb, var(--state-warning) 45%, transparent);
+  color: var(--state-warning);
+}
+
+.chip__count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.empty {
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  height: 100%;
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.empty__title {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--state-error) 15%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--state-error) 40%, transparent);
+  color: var(--state-error);
+  font-size: 12px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

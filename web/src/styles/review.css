@@ -1,0 +1,502 @@
+/* The mask review screen — doc 09.
+ *
+ * "The screen the whole project exists for. Everything else can be
+ * mediocre; this one cannot."
+ *
+ * Layout rationale, from doc 09: the image gets every pixel that is left,
+ * side panels are as narrow as they can be and still be usable, and status
+ * lives in the filmstrip so nothing overlays the image except the mask and
+ * the boxes.
+ */
+
+.review {
+  display: grid;
+  grid-template-rows: 40px minmax(0, 1fr) 36px;
+  /* minmax(0, ...) rather than a bare 1fr: a grid track's automatic
+   * minimum is its content's min-content width, and the bottom bar's
+   * non-wrapping buttons are wide. Without this the centre column refuses
+   * to shrink and pushes the inspector off-screen. */
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  grid-template-areas:
+    "head head head"
+    "strip canvas inspector"
+    "strip bottom inspector";
+  height: 100%;
+  min-height: 0;
+}
+
+/* Below 1440px the inspector collapses to a toggle, and below 1000px the
+ * filmstrip goes too (doc 09: minimum viewport 1280, and the image is the
+ * thing that cannot be sacrificed).
+ *
+ * The column widths are set inline by the component rather than by a stack
+ * of modifier classes here. Two independent collapses times an open/closed
+ * toggle is four combinations, and expressing that in the cascade produced
+ * exactly the bug you would expect: a hidden filmstrip still holding its
+ * column. One expression, in one place.
+ */
+
+/* When collapsed, the inspector floats over the image instead of taking a
+ * column from it — at 1000px there is nothing to give. */
+.review--floating .inspector {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  bottom: 36px;
+  width: 260px;
+  z-index: 5;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.45);
+}
+
+.review--floating .filmstrip--hidden,
+.filmstrip--hidden {
+  display: none;
+}
+
+.review {
+  position: relative;
+}
+
+/* -- header ---------------------------------------------------------------- */
+
+.review__head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+
+.review__title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review__progress {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* -- filmstrip ------------------------------------------------------------- */
+
+.filmstrip {
+  grid-area: strip;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border);
+}
+
+.filmstrip__scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+/* Zero-detection items are a pinned group at the top, not just a sort
+ * order — doc 09's brief says a sort order was not loud enough. */
+.filmstrip__group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 10px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.filmstrip__group--warn {
+  background: color-mix(in srgb, var(--state-warning) 16%, var(--bg-raised));
+  color: var(--state-warning);
+}
+
+.filmstrip__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.strip-row {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+  text-align: left;
+  cursor: pointer;
+}
+
+.strip-row:hover {
+  background: var(--bg-raised);
+}
+
+.strip-row[aria-selected="true"] {
+  background: var(--accent-muted);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.strip-row--empty {
+  background: color-mix(in srgb, var(--state-warning) 10%, transparent);
+  box-shadow: inset 2px 0 0 var(--state-warning);
+}
+
+.strip-row--empty[aria-selected="true"] {
+  background: color-mix(in srgb, var(--state-warning) 20%, transparent);
+}
+
+.strip-row__thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 3px;
+  background: var(--bg-void);
+  display: block;
+}
+
+.strip-row__body {
+  min-width: 0;
+}
+
+.strip-row__stem {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.strip-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.strip-row__meta--warn {
+  color: var(--state-warning);
+}
+
+.pill {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  flex: none;
+}
+
+.pill--reviewed {
+  background: var(--state-success);
+}
+.pill--warn {
+  background: var(--state-warning);
+}
+
+/* -- canvas ---------------------------------------------------------------- */
+
+.viewport {
+  grid-area: canvas;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-void);
+  /* No border, no radius — doc 08. */
+  touch-action: none;
+  contain: strict;
+}
+
+.viewport__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.viewport__canvas {
+  image-rendering: pixelated;
+}
+
+.viewport__svg {
+  pointer-events: none;
+}
+
+.viewport--drawing {
+  cursor: crosshair;
+}
+.viewport--panning {
+  cursor: grabbing;
+}
+
+.viewport__hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg-void) 80%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+/* Box colours come from tokens and carry the dark outer stroke (doc 07),
+ * because they sit on arbitrary photography. */
+.box {
+  fill: transparent;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: visibleStroke;
+  cursor: move;
+}
+
+.box--detected {
+  stroke: var(--box-detected);
+}
+.box--manual {
+  stroke: var(--box-manual);
+}
+.box--selected {
+  stroke: var(--box-selected);
+}
+
+.box__shadow {
+  fill: none;
+  stroke: var(--box-stroke);
+  stroke-width: 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.box__handle {
+  fill: var(--box-selected);
+  stroke: var(--box-stroke);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+}
+
+.marquee {
+  fill: color-mix(in srgb, var(--accent) 18%, transparent);
+  stroke: var(--accent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* -- bottom bar ------------------------------------------------------------ */
+
+.bottombar {
+  grid-area: bottom;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 10px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.bottombar__spacer {
+  flex: 1;
+}
+
+.bottombar__zoom {
+  min-width: 48px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.bottombar__position {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* -- inspector ------------------------------------------------------------- */
+
+.inspector {
+  grid-area: inspector;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+}
+
+.inspector__section {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.inspector__label {
+  margin: 0 0 8px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The box list is the canvas's accessible equivalent (doc 10): every box
+ * is a focusable item with its geometry as text. */
+.box-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.box-list__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-input);
+  font-size: 11px;
+  text-align: left;
+}
+
+.box-list__item[aria-selected="true"] {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.box-list__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.box-list__geometry {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.field__label {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.field__value {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.field input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.field select {
+  height: 26px;
+  padding: 0 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.kv__key {
+  color: var(--text-secondary);
+}
+
+.kv__value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* -- shortcut overlay ------------------------------------------------------ */
+
+.shortcuts {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg-void) 78%, transparent);
+  z-index: 50;
+}
+
+.shortcuts__panel {
+  width: min(760px, 90vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px 24px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+}
+
+.shortcuts__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 4px 24px;
+}
+
+.shortcuts__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  color: var(--text-primary);
+  font-family: var(--font-mono, "JetBrains Mono"), Consolas, monospace;
+  font-size: 11px;
+  text-align: center;
+}

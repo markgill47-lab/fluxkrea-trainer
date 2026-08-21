@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "daemon",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "fluxkrea.cli", "serve"],
+      "port": 8471
+    },
+    {
+      "name": "design-catalog",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "http.server", "8472", "--directory", "design"],
+      "port": 8472
+    }
+  ]
+}

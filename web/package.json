@@ -1,0 +1,26 @@
+{
+  "name": "fluxkrea-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Browser client for the FluxKrea Trainer daemon. Built to static files; the daemon serves them.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "icons": "node scripts/build-sprite.mjs",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/virtual-core": "^3.13.0",
+    "preact": "^10.26.0",
+    "uplot": "^1.6.32"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.0",
+    "@types/node": "^26.2.0",
+    "lucide-static": "^0.544.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}
