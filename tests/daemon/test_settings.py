@@ -8,6 +8,7 @@ below are what keeps them that way through a refactor.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import httpx
@@ -495,3 +496,35 @@ def test_an_unknown_folder_name_is_refused(api: httpx.Client, tmp_path: Path) ->
         f"/jobs/{submitted.json()['id']}/folders/open", json={"which": "/etc"}
     )
     assert response.status_code == 400
+
+
+# --------------------------------------------------------------------------
+# stale daemon
+# --------------------------------------------------------------------------
+
+
+def test_health_reports_a_daemon_running_edited_code(api: httpx.Client) -> None:
+    """Python loads modules once, so a daemon started before a change keeps
+    running the old one - silently. A memory fix landed mid-session, the
+    run was restarted, and the daemon generated two thousand steps of
+    config from the module it had loaded an hour earlier.
+    """
+    state = api.app_state  # type: ignore[attr-defined]
+
+    assert api.get("/health").json()["stale"] is False
+
+    state.started = 0.0  # every source file is newer than the epoch
+    state._stale = False
+    assert api.get("/health").json()["stale"] is True
+
+
+def test_staleness_latches(api: httpx.Client) -> None:
+    """Once the code has changed under a running daemon, it has. Clearing
+    the flag on a later poll would make the warning flicker."""
+    state = api.app_state  # type: ignore[attr-defined]
+    state.started = 0.0
+    state._stale = False
+    assert api.get("/health").json()["stale"] is True
+
+    state.started = time.time() + 3600  # even if the clock now says otherwise
+    assert api.get("/health").json()["stale"] is True

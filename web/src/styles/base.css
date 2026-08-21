@@ -310,3 +310,11 @@ select.node-select:hover {
     transform: rotate(360deg);
   }
 }
+
+/* A warning that is not an error: the daemon works, it is just not running
+ * the code on disk. Amber rather than red. */
+.banner--warn {
+  background: color-mix(in srgb, var(--state-warning) 15%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--state-warning) 40%, transparent);
+  color: var(--state-warning);
+}

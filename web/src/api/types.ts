@@ -14,6 +14,8 @@ export interface Health {
   uptime: number;
   queue_depth: number;
   tasks_active: number;
+  /** The daemon is running code that has since been edited on disk. */
+  stale?: boolean;
 }
 
 export interface Gpu {

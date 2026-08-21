@@ -605,6 +605,15 @@ def _run_node(args: argparse.Namespace, config: Config, console: Console, client
         )
         return OK
 
+    if args.action == "status":
+        health = client.get("/health")
+        if health.get("stale"):
+            console.write(
+                "! this daemon started before the code it is running was last "
+                "changed.\n  Restart it, or it will keep behaving like the "
+                "old version: fk serve"
+            )
+
     if args.action == "captioners":
         payload = client.get("/captioners")
         if args.test or args.provider:

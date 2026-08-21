@@ -157,6 +157,12 @@ export function App() {
       </nav>
 
       <main class="content">
+        {health?.stale && (
+          <div class="banner banner--warn">
+            ⚠ This daemon started before the code it is running was last changed.
+            Restart it, or it will keep behaving like the old version.
+          </div>
+        )}
         {error && <div class="banner">⚠ {error}</div>}
 
         {screen === "datasets" &&

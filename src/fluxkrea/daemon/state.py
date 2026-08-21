@@ -14,6 +14,13 @@ from pathlib import Path
 from typing import Any
 
 from .. import __version__
+
+
+def fluxkrea_root() -> Path:
+    """The installed package directory, for the staleness check."""
+    import fluxkrea
+
+    return Path(fluxkrea.__file__).resolve().parent
 from ..core import paths
 from ..core.captioners.prompts import PromptLibrary
 from ..core.config import Config, load
@@ -34,6 +41,8 @@ class State:
     tasks: TaskRunner = field(default=None)  # type: ignore[assignment]
     jobs: JobQueue = field(default=None)  # type: ignore[assignment]
     started: float = field(default_factory=time.time)
+    #: Latched: once the code has changed under a running daemon, it has.
+    _stale: bool = field(default=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.tasks is None:
@@ -62,7 +71,34 @@ class State:
             "uptime": round(time.time() - self.started, 1),
             "queue_depth": self.jobs.depth(),
             "tasks_active": self.tasks.active(),
+            "stale": self.stale(),
         }
+
+    def stale(self) -> bool:
+        """Is this daemon running code that has since been edited?
+
+        Python loads modules once, so a daemon started before a change is
+        still running the code from before it - silently, and with no
+        symptom except behaviour that does not match the source. That cost
+        a real training run: a memory fix landed, the run was restarted,
+        and the daemon happily generated a config from the old module for
+        two thousand steps.
+
+        Cheap enough to check on every health poll: a few hundred stats,
+        and only when the answer could still change.
+        """
+        if self._stale:
+            return True
+        newest = 0.0
+        try:
+            for module in Path(fluxkrea_root()).rglob("*.py"):
+                mtime = module.stat().st_mtime
+                if mtime > newest:
+                    newest = mtime
+        except OSError:
+            return False
+        self._stale = newest > self.started
+        return self._stale
 
     def backends(self) -> dict[str, Any]:
         """Which backends this node has, and whether they could actually run.
