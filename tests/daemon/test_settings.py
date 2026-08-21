@@ -422,3 +422,76 @@ def test_a_long_run_name_explains_itself_rather_than_going_missing(tmp_path: Pat
 
     with pytest.raises(BackendError, match="past Windows'"):
         backend.generate_config(spec)
+
+
+# --------------------------------------------------------------------------
+# a run's folders
+# --------------------------------------------------------------------------
+
+
+def test_the_folders_endpoint_reports_where_a_run_wrote(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    run = tmp_path / "runs" / "flux2-poses"
+    (run / "samples").mkdir(parents=True)
+
+    submitted = api.post(
+        "/jobs",
+        json={"model": "flux2", "dataset": "poses", "output": run.as_posix(), "steps": 4},
+    )
+    job_id = submitted.json()["id"]
+
+    body = api.get(f"/jobs/{job_id}/folders").json()
+    assert body["output"] == run.as_posix()
+    assert body["samples"] == (run / "samples").as_posix()
+    assert body["samples_exists"] is True
+
+
+def test_a_samples_folder_that_does_not_exist_yet_is_named_but_flagged(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    """Offering to open a folder that is not there is worse than not offering."""
+    run = tmp_path / "runs" / "flux2-poses"
+    run.mkdir(parents=True)
+
+    submitted = api.post(
+        "/jobs",
+        json={"model": "flux2", "dataset": "poses", "output": run.as_posix(), "steps": 4},
+    )
+    body = api.get(f"/jobs/{submitted.json()['id']}/folders").json()
+
+    assert body["samples"].endswith("/samples")
+    assert body["samples_exists"] is False
+
+
+def test_opening_a_missing_folder_answers_rather_than_erroring(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    """A headless node cannot open anything either; both are answers."""
+    run = tmp_path / "runs" / "flux2-poses"
+    run.mkdir(parents=True)
+
+    submitted = api.post(
+        "/jobs",
+        json={"model": "flux2", "dataset": "poses", "output": run.as_posix(), "steps": 4},
+    )
+    response = api.post(f"/jobs/{submitted.json()['id']}/folders/open", json={"which": "samples"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["opened"] is False
+    assert body["path"].endswith("/samples")
+    assert body["detail"]
+
+
+def test_an_unknown_folder_name_is_refused(api: httpx.Client, tmp_path: Path) -> None:
+    run = tmp_path / "runs" / "flux2-poses"
+    run.mkdir(parents=True)
+    submitted = api.post(
+        "/jobs",
+        json={"model": "flux2", "dataset": "poses", "output": run.as_posix(), "steps": 4},
+    )
+    response = api.post(
+        f"/jobs/{submitted.json()['id']}/folders/open", json={"which": "/etc"}
+    )
+    assert response.status_code == 400

@@ -17,6 +17,8 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Header, Query
+from pathlib import Path
+
 from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
@@ -179,6 +181,78 @@ def sample_image(job_id: str, name: str, state: State = Depends(get_state)) -> F
         if entry["name"] == name:
             return FileResponse(entry["path"], media_type="image/jpeg")
     raise Denied(f"no sample {name!r} for job {job_id}", status=404)
+
+
+@router.get("/{job_id}/folders")
+def folders(job_id: str, state: State = Depends(get_state)) -> dict[str, Any]:
+    """Where this run wrote, so a client can show or open it.
+
+    ``exists`` is checked rather than assumed: the samples folder does not
+    appear until the first sample is rendered, and offering to open a
+    folder that is not there yet is worse than not offering.
+    """
+    job = _job(state, job_id)
+    from ...core import paths as core_paths
+
+    output = core_paths.expand(job.spec.output) if job.spec.output else None
+    samples = _samples_dir(job)
+
+    return {
+        "id": job_id,
+        "output": output.as_posix() if output else "",
+        "output_exists": bool(output and output.is_dir()),
+        "samples": samples.as_posix() if samples else "",
+        "samples_exists": bool(samples and samples.is_dir()),
+    }
+
+
+@router.post("/{job_id}/folders/open")
+def open_run_folder(
+    job_id: str,
+    payload: dict[str, Any] = Body(default={}),
+    state: State = Depends(get_state),
+) -> dict[str, Any]:
+    """Open the run's output or samples folder in the node's file manager.
+
+    Returns 200 with ``opened: false`` and a reason rather than an error
+    status: a headless node cannot open anything, and that is an answer to
+    the question, not a failure. The path comes back either way, because
+    over a tunnel it is the only useful half.
+    """
+    from ..reveal import open_folder
+
+    job = _job(state, job_id)
+    which = str(payload.get("which") or "samples").strip().lower()
+    if which not in ("samples", "output"):
+        raise Denied(f"unknown folder {which!r}; expected 'samples' or 'output'", status=400)
+
+    from ...core import paths as core_paths
+
+    if which == "samples":
+        target = _samples_dir(job)
+    else:
+        target = core_paths.expand(job.spec.output) if job.spec.output else None
+
+    if target is None:
+        raise Denied(f"job {job_id} has no {which} folder recorded", status=404)
+
+    opened, why = open_folder(target)
+    return {"id": job_id, "which": which, "path": target.as_posix(), "opened": opened, "detail": why}
+
+
+def _samples_dir(job: Any) -> Path | None:
+    """The samples folder for a run, whether or not it exists yet."""
+    from ...core import paths as core_paths
+
+    if not job.spec.output:
+        return None
+    root = core_paths.expand(job.spec.output)
+    for name in SAMPLE_DIRS:
+        candidate = root / name
+        if candidate.is_dir():
+            return candidate
+    # Not there yet - name the one the trainer will create.
+    return root / SAMPLE_DIRS[0]
 
 
 #: Where trainers write samples, relative to the run's output folder.

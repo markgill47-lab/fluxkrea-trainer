@@ -351,3 +351,19 @@ export interface RunPlan {
   /** Where the rate came from, so an extrapolation is not read as a promise. */
   basis: string;
 }
+
+/** Where a run wrote. `*_exists` is checked, not assumed. */
+export interface RunFolders {
+  id: string;
+  output: string;
+  output_exists: boolean;
+  samples: string;
+  samples_exists: boolean;
+}
+
+export interface OpenedFolder {
+  path: string;
+  opened: boolean;
+  /** Why not, when it could not be opened - a headless node, usually. */
+  detail: string;
+}

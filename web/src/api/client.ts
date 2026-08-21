@@ -24,7 +24,9 @@ import type {
   LossPayload,
   ModelInfo,
   NodeInfo,
+  OpenedFolder,
   ReviewProgress,
+  RunFolders,
   RunPlan,
   SampleImage,
   SavedPrompt,
@@ -320,6 +322,18 @@ export const api = {
       undefined,
       o,
     ),
+
+  /** Where a run wrote, and whether those folders exist yet. */
+  runFolders: (id: string, o?: RequestOptions) =>
+    request<RunFolders>("GET", `/jobs/${id}/folders`, undefined, o),
+
+  /**
+   * Open a run's folder in the file manager *on the node*. Over a tunnel
+   * that is a different machine from the one looking at this, which is why
+   * the path comes back either way.
+   */
+  openRunFolder: (id: string, which: "samples" | "output" = "samples", o?: RequestOptions) =>
+    request<OpenedFolder>("POST", `/jobs/${id}/folders/open`, { which }, o),
 
   cancelTask: (id: string, o?: RequestOptions) =>
     request<{ id: string; cancelling: boolean }>("DELETE", `/tasks/${id}`, undefined, o),

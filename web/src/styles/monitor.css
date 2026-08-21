@@ -300,3 +300,37 @@
     border-bottom: 1px solid var(--border);
   }
 }
+
+/* -- the samples folder control ------------------------------------------- */
+
+.samples__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+/* The path is a button because clicking it copies, but it should read as
+ * the path it is rather than as a control. */
+.samples__path {
+  padding: 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+
+.samples__path:hover {
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+
+.samples__note {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}

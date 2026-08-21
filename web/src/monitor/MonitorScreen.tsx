@@ -256,7 +256,7 @@ export function MonitorScreen({ onError, initialJob = null }: Props) {
         )}
       </div>
 
-      <SampleStrip samples={samples} />
+      <SampleStrip samples={samples} jobId={jobId} />
 
       <LogStream
         lines={logLines}

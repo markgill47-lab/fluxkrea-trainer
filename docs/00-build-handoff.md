@@ -268,6 +268,21 @@ Places where the spec left room and the code had to pick:
   renumbering. Carry them forward rather than rediscovering them; the
   list is in [01](01-v1-audit.md#dataset-side-rot-fixed-in-d1890ce).
 
+## The against-real-ai-toolkit tests
+
+`tests/backends/test_against_real_aitoolkit.py` hands each generated
+config to ai-toolkit's own `get_job()` and asserts it resolves to a
+trainer with the right architecture. It finds a checkout through
+`FLUXKREA_AITOOLKIT`, falling back to the two under
+`AI_Image_Trainer/`, and runs it in **v1's interpreter** - ours has no
+torch, deliberately.
+
+Point it at **`ai-toolkit-krea2`**. All 7 pass there. The older
+`ai-toolkit` beside it cannot import at all in that venv
+(`cannot import name 'Repository' from 'huggingface_hub'` - removed in
+hub 1.0), which is a rotted checkout rather than anything about our
+configs.
+
 ## Testing the client
 
 `cd web && npm test` — Vitest, jsdom, `@testing-library/preact`. Separate

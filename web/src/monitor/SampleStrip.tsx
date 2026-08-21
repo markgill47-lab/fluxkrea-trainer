@@ -8,14 +8,17 @@
  * click.
  */
 
-import { useState } from "preact/hooks";
+import { useCallback, useState } from "preact/hooks";
+import { api, ApiError, isAbort } from "~/api/client";
 import type { SampleImage } from "~/api/types";
 
 interface Props {
   samples: SampleImage[];
+  /** The run these belong to, so the folder can be opened. */
+  jobId?: string | null;
 }
 
-export function SampleStrip({ samples }: Props) {
+export function SampleStrip({ samples, jobId = null }: Props) {
   const [open, setOpen] = useState<SampleImage | null>(null);
 
   if (!samples.length) {
@@ -30,6 +33,7 @@ export function SampleStrip({ samples }: Props) {
 
   return (
     <section class="samples" aria-label="Samples">
+      {jobId && <SamplesFolder jobId={jobId} />}
       <div class="samples__scroll">
         {samples.map((sample) => (
           <figure class="sample" key={sample.name} onClick={() => setOpen(sample)}>
@@ -48,5 +52,67 @@ export function SampleStrip({ samples }: Props) {
         </div>
       )}
     </section>
+  );
+}
+
+
+/**
+ * Open the samples folder — on the node, which over a tunnel is not the
+ * machine you are looking at.
+ *
+ * So the path is shown as well as offered, and copying it is one click.
+ * A headless fleet node cannot open anything and says so rather than
+ * failing silently, which is why the endpoint answers 200 with a reason.
+ */
+function SamplesFolder({ jobId }: { jobId: string }) {
+  const [message, setMessage] = useState<string | null>(null);
+  const [path, setPath] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+
+  const reveal = useCallback(async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api.openRunFolder(jobId, "samples");
+      setPath(result.path);
+      setMessage(result.opened ? result.detail : `${result.detail}`);
+    } catch (error) {
+      if (!isAbort(error)) {
+        setMessage(error instanceof ApiError ? error.message : String(error));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [jobId]);
+
+  const copy = useCallback(async () => {
+    if (!path) return;
+    try {
+      await navigator.clipboard.writeText(path);
+      setMessage("path copied");
+    } catch {
+      // Clipboard access needs a secure context, which a plain-http
+      // tunnel is not. The path is on screen either way.
+      setMessage("select the path above to copy it");
+    }
+  }, [path]);
+
+  return (
+    <div class="samples__bar">
+      <button class="btn btn--ghost" onClick={() => void reveal()} disabled={busy}>
+        {busy ? <span class="spinner" /> : null}
+        Open samples folder
+      </button>
+      {path && (
+        <button
+          class="samples__path mono"
+          onClick={() => void copy()}
+          title="Copy this path"
+        >
+          {path}
+        </button>
+      )}
+      {message && <span class="samples__note">{message}</span>}
+    </div>
   );
 }
