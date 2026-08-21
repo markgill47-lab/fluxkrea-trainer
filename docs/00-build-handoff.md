@@ -6,9 +6,9 @@ thing to do.
 
 ## Where things stand
 
-**P0 through P6 are built and green.** 623 tests pass on Windows; the
-suite is platform-neutral and both OS layouts are exercised from either
-one. What exists:
+**FLUX.2 trains end to end on real hardware.** 701 Python tests and 50
+component tests pass on Windows; the Python suite is platform-neutral and
+both OS layouts are exercised from either one. What exists:
 
 | | |
 |---|---|
@@ -29,6 +29,8 @@ one. What exists:
 | `core/backends/aitoolkit.py` | **FLUX.2, Klein and Krea 2 in one config-driven class** |
 | `daemon/` | 30 endpoints, task runner, SSE, persistent job queue, token and path scoping |
 | `cli/` | `fk` — a real API client: dataset ops, push, fleet, jobs, `serve` |
+| `web/` | The browser client: gallery, mask review, training config + monitor, settings |
+| `web/tests/` | Component tests — mount lifecycle, submitted payloads, what a dialog says before it acts |
 | `deploy/` | systemd user unit and deployment notes |
 
 The guard test is in place and passing: nothing under `core/` imports a UI
@@ -36,14 +38,20 @@ toolkit, an HTTP framework, or a client package — and it now resolves
 relative imports, which is how a `core → daemon` reference slipped past it
 once already.
 
-The web client is built: dataset gallery, mask review, training monitor
-and settings, in `web/` (Vite + Preact + TypeScript, self-hosted fonts,
-no CDN). The daemon serves the built client, so there is one thing to
-deploy per node.
+The web client is built: dataset gallery, mask review, training
+configuration and monitor, and settings, in `web/` (Vite + Preact +
+TypeScript, self-hosted fonts, no CDN). The daemon serves the built
+client, so there is one thing to deploy per node.
 
 **Not built:** the Klein backend (P5 — the standalone `klein_trainer/`,
 not Klein-through-ai-toolkit, which works today). The fleet view is not
 being built as a node-served UI at all — see the decision below.
+
+**Not yet proved:** a full-length run. What has been trained is a 40-step
+smoke test at 512, which proves the pipeline and nothing about the LoRA.
+The first real question a long run will answer is whether the loss regexes
+hold across thousands of steps and whether the 9B and Krea 2 paths behave
+like the 4B one.
 
 ### FLUX.2 trains, for real
 
@@ -119,25 +127,28 @@ running, paused and several amber depths are still floating as literals
 in the screen compositions rather than tokens. Not blocking; fix before
 P6.
 
-## Start here: a real run, then P5
+## Start here
 
-**Point it at a real checkout and train something.** Everything below the
-GPU is proved; nothing above it is.
+The first real run has happened, and it found three things no test could
+(see "FLUX.2 trains, for real" above). The next questions are the ones a
+*long* run answers.
 
-```bash
-export FLUXKREA_BACKENDS_AITOOLKIT_PATH=/path/to/ai-toolkit-krea2
-export FLUXKREA_BACKENDS_PYTHON_EXE=/path/to/ai-toolkit/.venv/bin/python
-fk node models                     # the backend should read "ready"
-fk train --model flux2 --dataset poses --masked --steps 100 --watch
-```
+**Run something at full length.** 47 images x 10 repeats x 6 epochs is
+2,820 steps; the monitor now has a measured seconds-per-step for flux2 on
+this node, so it will estimate the wall clock before you commit to it.
+Watch for: whether the step and loss regexes hold over thousands of steps
+rather than forty, whether checkpoint rotation
+(`max_step_saves_to_keep: 3`) behaves, and whether a run that is
+cancelled mid-flight leaves the queue and the output folder in a state the
+next run is happy with.
 
-What a first real run will find, and no test here can: whether the step
-and loss regexes match this build's actual output, how long the Mistral
-text encoder takes to load, and whether `low_vram` is set right for the
-card. The regexes are in `core/backends/aitoolkit.py`; `OutputParser` is
-tested standalone, so a mismatch is a one-line fix plus a test.
+**Then the other three models.** Only Klein 4B has actually trained. Klein
+9B, Krea 2 and FLUX.2 dev share the code path but not the memory profile:
+9B and dev push the text encoder to CPU, and `low_vram` is a guess per
+model until a card disagrees. FLUX.2 dev is also the only one not on this
+node's disk, so it is the one that tests the HuggingFace path.
 
-Then **P5 — the Klein backend**: porting the standalone `klein_trainer/`
+**Then P5 — the Klein backend**: porting the standalone `klein_trainer/`
 (4,165 lines) and wrapping it in the protocol. Note that Klein *through
 ai-toolkit* already works, so P5 is only worth the effort if the
 standalone trainer does something the ai-toolkit path does not.

@@ -3,12 +3,17 @@
 A rewrite of the LoRA training GUI at `D:\Projects_26\AI_Image_Trainer`,
 targeting FLUX.2 Klein and Krea 2 across a distributed lab fleet.
 
-**Status: P0–P6 built and green.** The headless core, the per-node daemon
-and its API, `fk` as a real API client, the ai-toolkit backend —
-**FLUX.2, both Klein sizes and Krea 2 train through one config-driven
-class** — and the browser client the daemon serves: dataset gallery, mask
-review, training configuration and monitor, settings. The standalone Klein trainer does not
-exist yet. v1 stays the working tool until v2 can genuinely replace it.
+**Status: FLUX.2 trains, end to end, on real hardware.** A LoRA has been
+produced from a real dataset through this stack — dataset registered in
+the browser, captioned locally, validated, configured, queued, trained on
+ai-toolkit, loss and samples streamed back to the monitor, checkpoint
+written. The headless core, the per-node daemon and its API, `fk` as a
+full API client, the ai-toolkit backend (**FLUX.2, both Klein sizes and
+Krea 2 through one config-driven class**) and the browser client the
+daemon serves are all built and green.
+
+Not built: the standalone Klein trainer. v1 stays the working tool until
+v2 has trained something worth keeping.
 
 ## Why rewrite
 
@@ -83,11 +88,36 @@ a client of that API rather than the thing that owns the logic. See
 Docs 07–10 are the design catalog — written to be handed to design work
 as input, not produced by it.
 
-## Using it
+## Setting up a node
+
+Four settings decide whether a node can train. `fk node models` reports
+`backend aitoolkit: ready` when they are right.
 
 ```bash
 pip install -e ".[dev,daemon]"
 
+fk config set   backends.aitoolkit_path=/path/to/ai-toolkit   backends.python_exe=/path/to/ai-toolkit/.venv/bin/python   backends.output_root=/path/to/Output   backends.comfyui_path=/path/to/ComfyUI          # optional
+```
+
+`python_exe` is ai-toolkit's interpreter, not this package's — this one
+deliberately has no torch, so the laptop driving the fleet stays light.
+`comfyui_path` is a place to look for weights already on disk, so a node
+with a 26GB checkpoint in a ComfyUI folder does not download a second
+copy; it prefers the full-precision file over an fp8 one, because fp8 is
+for inference and training from it teaches the LoRA the quantisation.
+Without it, models are fetched from their HuggingFace repo.
+
+A run writes everything into one folder:
+
+```
+Output/<run>/_fluxkrea.yaml            the generated config
+Output/<run>/<run>_000000400.safetensors
+Output/<run>/samples/
+```
+
+## Using it
+
+```bash
 fk node status                                   # versions, GPUs, detectors
 fk prompts list                                  # saved caption prompts
 fk dataset caption ./poses --prompt-name person  # local vision model, no key
@@ -122,8 +152,8 @@ nothing under `core/` imports a UI toolkit.
 ## Tests
 
 ```bash
-pytest                    # 682 — core, daemon, CLI, backends
-cd web && npm test        # 47  — component tests for the browser client
+pytest                    # 701 — core, daemon, CLI, backends
+cd web && npm test        # 50  — component tests for the browser client
 ```
 
 The component tests exist because of a specific failure: the training form
@@ -133,6 +163,16 @@ the first registered one, and a run training the wrong images without
 saying so. No Python test could have caught it. The bar for what goes in
 `web/tests/` is behaviour that only appears once a component is mounted,
 unmounted, re-rendered, or driven by a person.
+
+Some of `tests/backends/` runs against a real ai-toolkit checkout, handing
+each generated config to its own `get_job()` rather than to our
+expectations. Point `FLUXKREA_AITOOLKIT` at one; those tests skip without.
+They are the check that catches a config which is well-formed and wrong.
+
+Neither suite can catch what a real trainer does with the config. Three
+bugs — a model name that was never a model, a filename inside ai-toolkit's
+resume glob, and every loss counted twice — survived both suites and died
+on the first real run.
 
 ## Ground rules
 
