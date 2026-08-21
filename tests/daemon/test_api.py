@@ -365,7 +365,7 @@ def test_import_refuses_a_non_tar(api: httpx.Client, dataset: Path) -> None:
 # --------------------------------------------------------------------------
 
 
-def test_browse_is_scoped_to_the_roots(api: httpx.Client, tmp_path: Path, dataset: Path) -> None:
+def test_browse_replaces_the_file_picker(api: httpx.Client, tmp_path: Path, dataset: Path) -> None:
     """There is no native file picker in a browser; this replaces it."""
     listing = api.get("/fs/browse").json()
     assert listing["roots"] == [tmp_path.as_posix()]
@@ -375,8 +375,34 @@ def test_browse_is_scoped_to_the_roots(api: httpx.Client, tmp_path: Path, datase
     assert "poses" in names
     assert next(e for e in inside["entries"] if e["name"] == "poses")["images"] == 4
 
-    outside = api.get("/fs/browse", params={"path": tmp_path.parent.as_posix()})
-    assert outside.status_code == 403
+
+def test_browsing_is_not_the_same_permission_as_registering(
+    api: httpx.Client, tmp_path: Path, dataset: Path
+) -> None:
+    """Browsing outside the roots is allowed on loopback; using it is not.
+
+    This used to be one rule, and confining the browser left a local
+    operator unable to reach a folder on another drive at all - the roots
+    are not writable through `PUT /config`, so nothing in the app could get
+    them there. The roots still scope what may be *registered*, which is
+    the check that actually protects anything.
+    """
+    outside = tmp_path.parent / "not-a-root"
+    outside.mkdir(exist_ok=True)
+
+    assert api.get("/fs/browse", params={"path": outside.as_posix()}).status_code == 200
+    assert api.post("/datasets", json={"path": outside.as_posix()}).status_code == 403
+
+
+def test_browsing_stays_scoped_when_the_daemon_listens_wider(
+    api: httpx.Client, tmp_path: Path, dataset: Path
+) -> None:
+    """The concession is to being on the machine, not to being a client."""
+    api.app_state.config.daemon.host = "0.0.0.0"  # type: ignore[attr-defined]
+
+    outside = tmp_path.parent / "not-a-root"
+    outside.mkdir(exist_ok=True)
+    assert api.get("/fs/browse", params={"path": outside.as_posix()}).status_code == 403
 
 
 def test_browse_marks_registered_folders(api: httpx.Client, tmp_path: Path, dataset: Path) -> None:

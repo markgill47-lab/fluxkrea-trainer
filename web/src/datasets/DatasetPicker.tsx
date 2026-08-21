@@ -19,6 +19,15 @@ import { useCallback, useEffect, useState } from "preact/hooks";
 import { api, ApiError, isAbort } from "~/api/client";
 import type { BrowseResponse, Dataset } from "~/api/types";
 
+/** Is this folder already inside one of the node's dataset roots? */
+function withinRoots(path: string, roots: string[]): boolean {
+  const target = path.replace(/\\/g, "/").toLowerCase().replace(/\/+$/, "");
+  return roots.some((root) => {
+    const base = root.replace(/\\/g, "/").toLowerCase().replace(/\/+$/, "");
+    return target === base || target.startsWith(`${base}/`);
+  });
+}
+
 export function DatasetPicker({
   datasets,
   onClose,
@@ -160,14 +169,28 @@ export function DatasetPicker({
                     <button
                       class="btn"
                       disabled={busy === entry.path || entry.images === 0}
-                      onClick={() => void act(entry.path, () => api.registerDataset(entry.path))}
+                      onClick={() =>
+                        void act(entry.path, async () => {
+                          // A folder outside the configured roots cannot be
+                          // registered until it is inside one. Adding the
+                          // root is the step that used to be missing
+                          // entirely: the work was on another drive, and
+                          // there was no way to say so from in here.
+                          if (!withinRoots(entry.path, listing?.roots ?? [])) {
+                            await api.addRoot(entry.path);
+                          }
+                          return api.registerDataset(entry.path);
+                        })
+                      }
                       title={
                         entry.images === 0
                           ? "No images in this folder — open it to find the one that has them"
-                          : "Register this folder as a dataset"
+                          : withinRoots(entry.path, listing?.roots ?? [])
+                            ? "Register this folder as a dataset"
+                            : "Outside this node's dataset roots — adding it will widen them"
                       }
                     >
-                      Add
+                      {withinRoots(entry.path, listing?.roots ?? []) ? "Add" : "Add + allow"}
                     </button>
                   )}
                 </li>
@@ -176,7 +199,8 @@ export function DatasetPicker({
           )}
 
           <p class="modal__note">
-            Only folders under this node's configured roots are listed.{" "}
+            Datasets may live anywhere; the roots below are what this node will
+            open without being asked again.{" "}
             {listing?.roots.length ? (
               <span class="mono">{listing.roots.join(", ")}</span>
             ) : (

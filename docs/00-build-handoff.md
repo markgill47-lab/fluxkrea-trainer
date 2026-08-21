@@ -237,6 +237,15 @@ Places where the spec left room and the code had to pick:
   expected rather than where ai-toolkit puts them, which is exactly why
   that test hid the bug - `test_plan.py` now pins our folder against
   ai-toolkit's own formula.
+- **Browsing is not the same permission as registering.** The roots scope
+  what a dataset may be registered from, and confining the *browser* to
+  them as well left a local operator with work on D: unable to reach it -
+  `dataset.roots` is deliberately not writable through `PUT /config`, so
+  nothing inside the app could get them there. On a loopback-bound daemon
+  the browser now goes anywhere and the top level lists the drives;
+  `check_path` still gates registration. `POST /config/roots` widens the
+  roots, and refuses when the daemon listens beyond loopback - the
+  concession is to being on the machine, not to being a client.
 - **Read-modify-write on the box file is locked, and each writer gets its
   own temp name.** The review screen sends one PUT per image and FastAPI
   runs them in parallel. Two marks both loaded `face_boxes.json`, both

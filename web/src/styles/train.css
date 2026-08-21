@@ -218,6 +218,16 @@
   padding: 12px;
   border-bottom: 1px solid var(--border);
   min-height: 0;
+  /* Keep its own height. In a flex column the default is to shrink, so
+   * the registered list collapsed under the folder browser and the two
+   * drew on top of each other. */
+  flex: none;
+}
+
+/* Long enough lists get their own scroll rather than squeezing a sibling. */
+.modal__section > .picker {
+  max-height: 30vh;
+  overflow-y: auto;
 }
 
 /* The browser half takes what is left, so the registered list stays put
@@ -225,7 +235,8 @@
 .modal__section--grow {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 180px;
   border-bottom: none;
 }
 

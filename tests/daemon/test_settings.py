@@ -528,3 +528,89 @@ def test_staleness_latches(api: httpx.Client) -> None:
 
     state.started = time.time() + 3600  # even if the clock now says otherwise
     assert api.get("/health").json()["stale"] is True
+
+
+# --------------------------------------------------------------------------
+# reaching another drive
+# --------------------------------------------------------------------------
+
+
+def test_browsing_can_leave_the_roots_on_a_loopback_daemon(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    """Reported: the work is on D:, the picker only showed C:.
+
+    Confining the browser to the roots as well as registration left no way
+    to reach a folder that was not already listed - and `dataset.roots` is
+    not writable through `PUT /config`, so there was no route out from
+    inside the app at all.
+    """
+    outside = tmp_path.parent / "somewhere-else"
+    outside.mkdir(exist_ok=True)
+    (outside / "photos").mkdir(exist_ok=True)
+
+    body = api.get("/fs/browse", params={"path": outside.as_posix()}).json()
+    assert "photos" in [entry["name"] for entry in body["entries"]]
+
+
+def test_the_top_level_offers_the_drives(api: httpx.Client) -> None:
+    """"My work is on D:" needs an answer in the picker."""
+    import os
+
+    entries = api.get("/fs/browse").json()["entries"]
+    names = [entry["name"] for entry in entries]
+
+    assert all(names), "a drive with no display name is an unclickable row"
+    if os.name == "nt":
+        assert any(name.upper().startswith("C:") for name in names)
+
+
+def test_a_root_can_be_added_from_a_loopback_daemon(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    elsewhere = tmp_path.parent / "another-drive"
+    elsewhere.mkdir(exist_ok=True)
+
+    body = api.post("/config/roots", json={"path": elsewhere.as_posix()}).json()
+    assert body["added"] is True
+    assert elsewhere.as_posix() in body["roots"]
+
+    # And now a dataset there can be registered at all.
+    (elsewhere / "poses").mkdir(exist_ok=True)
+    assert api.post("/datasets", json={"path": (elsewhere / "poses").as_posix()}).status_code == 201
+
+
+def test_adding_a_root_already_covered_changes_nothing(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    """A narrower entry under an existing root says nothing new."""
+    inside = tmp_path / "within"
+    inside.mkdir()
+
+    body = api.post("/config/roots", json={"path": inside.as_posix()}).json()
+    assert body["added"] is False
+
+
+def test_a_root_that_is_not_a_folder_is_refused(api: httpx.Client, tmp_path: Path) -> None:
+    assert api.post("/config/roots", json={"path": str(tmp_path / "nope")}).status_code == 404
+    assert api.post("/config/roots", json={}).status_code == 400
+
+
+def test_a_daemon_listening_wider_refuses_to_widen_its_own_sandbox(
+    api: httpx.Client, tmp_path: Path
+) -> None:
+    """The whole reason roots stay out of PUT /config.
+
+    On loopback the caller is already on the machine and can edit
+    config.toml by hand, so this grants nothing. Listening wider, it must
+    not be possible for a client to expand what it is allowed to reach.
+    """
+    state = api.app_state  # type: ignore[attr-defined]
+    state.config.daemon.host = "0.0.0.0"
+
+    elsewhere = tmp_path.parent / "remote-attempt"
+    elsewhere.mkdir(exist_ok=True)
+    response = api.post("/config/roots", json={"path": elsewhere.as_posix()})
+
+    assert response.status_code == 403
+    assert "config.toml" in response.json()["error"]

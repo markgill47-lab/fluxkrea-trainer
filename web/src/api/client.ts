@@ -142,6 +142,14 @@ export const api = {
   registerDataset: (path: string, name?: string, o?: RequestOptions) =>
     request<Dataset>("POST", "/datasets", { path, name }, o),
 
+  /**
+   * Widen this node's dataset roots. Loopback-bound daemons only - the
+   * roots are the allow-list every path check is measured against, so a
+   * remote client must not be able to expand its own sandbox.
+   */
+  addRoot: (path: string, o?: RequestOptions) =>
+    request<{ roots: string[]; added: boolean }>("POST", "/config/roots", { path }, o),
+
   /** Forget a dataset. The folder and its files are left alone. */
   forgetDataset: (dataset: string, o?: RequestOptions) =>
     request<{ id: string; forgotten: boolean }>("DELETE", `/datasets/${dataset}`, undefined, o),

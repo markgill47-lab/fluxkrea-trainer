@@ -30,8 +30,9 @@ from ...core.captioners import (
     from_config as build_captioner,
     labels as captioner_labels,
 )
+from ...core import paths
 from ...core.config import SECRET_ENV, ConfigError, secret
-from ..security import Denied
+from ..security import Denied, is_loopback
 from ..state import State
 from .deps import get_state
 
@@ -105,6 +106,76 @@ def put_config(
     body["changed"] = sorted(str(k) for k in updates)
     body["restart_required"] = [k for k in body["changed"] if k in RESTART_REQUIRED]
     return body
+
+
+@router.post("/config/roots")
+def add_root(
+    payload: dict[str, Any] = Body(default={}),
+    state: State = Depends(get_state),
+) -> dict[str, Any]:
+    """Add a dataset root, on a loopback-bound daemon only.
+
+    `dataset.roots` stays out of `PUT /config` - a client that can widen
+    the allow-list every path check is measured against has widened this
+    API's reach. But refusing outright left no way to add a dataset from a
+    drive that was not already listed, in an app whose whole job is
+    pointing at folders. There was no route out from inside it.
+
+    The line is where the daemon is listening. On loopback the caller is on
+    the machine already and can edit `config.toml` by hand, so this grants
+    nothing new. Listening wider needs a token, and there this still
+    refuses: a remote client must not be able to expand its own sandbox.
+    """
+    if not is_loopback(state.config.daemon.host):
+        raise Denied(
+            f"this daemon is listening on {state.config.daemon.host}, so a client "
+            "cannot widen its dataset roots. Edit config.toml on the node.",
+            status=403,
+        )
+
+    raw = str(payload.get("path") or "").strip()
+    if not raw:
+        raise Denied("no path given", status=400)
+
+    target = paths.expand(raw)
+    if not target.is_dir():
+        raise Denied(f"{target.as_posix()} is not a folder", status=404)
+
+    roots = list(state.config.dataset.roots)
+    if any(paths.is_within(target, root) for root in roots):
+        # Already covered - adding it would be a second, narrower entry
+        # saying nothing the first does not.
+        return {"roots": [r.as_posix() for r in roots], "added": False}
+
+    # Anything already inside the newcomer is now redundant.
+    roots = [r for r in roots if not paths.is_within(r, target)]
+    roots.append(target)
+    state.config.dataset.roots = roots
+
+    try:
+        written = state.config.save()
+    except OSError as exc:
+        raise Denied(f"cannot write the config file: {exc}", status=500) from exc
+
+    return {"roots": [r.as_posix() for r in roots], "added": True, "written": written.as_posix()}
+
+
+@router.delete("/config/roots")
+def remove_root(
+    payload: dict[str, Any] = Body(default={}),
+    state: State = Depends(get_state),
+) -> dict[str, Any]:
+    """Drop a dataset root. Registered datasets under it are left alone."""
+    if not is_loopback(state.config.daemon.host):
+        raise Denied("this daemon is listening beyond loopback", status=403)
+
+    target = paths.expand(str(payload.get("path") or "").strip() or ".")
+    roots = [r for r in state.config.dataset.roots if r != target]
+    removed = len(roots) != len(state.config.dataset.roots)
+    if removed:
+        state.config.dataset.roots = roots
+        state.config.save()
+    return {"roots": [r.as_posix() for r in roots], "removed": removed}
 
 
 @router.get("/config/secrets")
