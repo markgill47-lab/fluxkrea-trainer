@@ -6,9 +6,14 @@ thing to do.
 
 ## Where things stand
 
-**FLUX.2 trains end to end on real hardware.** 701 Python tests and 50
-component tests pass on Windows; the Python suite is platform-neutral and
-both OS layouts are exercised from either one. What exists:
+**A full-length FLUX.2 run has finished.** 4,440 steps, Klein 9B,
+masked, unquantised on one 5090 — the first output here that is a LoRA
+rather than a smoke test. Checkpoint rotation held (3 kept plus the
+final), the loss regexes held across thousands of steps, and the analytics
+above the backend line ran on a real series rather than a synthetic one.
+731 Python tests and 55 component tests pass on Windows; the Python suite
+is platform-neutral and both OS layouts are exercised from either one.
+What exists:
 
 | | |
 |---|---|
@@ -20,6 +25,7 @@ both OS layouts are exercised from either one. What exists:
 | `core/dataset/ops/` | `resize`, `rename` (plan/execute, rollback), `augment`, `mask`, `caption` |
 | `core/captioners/` | `Captioner` interface; JoyCaption in-process, Ollama, Claude, behind a registry |
 | `core/captioners/prompts.py` | Saved caption prompts, five shipped, built-ins shadowed not destroyed |
+| `core/backends/memory.py` | Does this model fit this card — quantise, offload, or neither |
 | `core/backends/plan.py` | `images x repeats x epochs`, and a duration measured from this node's own runs |
 | `core/analytics/loss.py` | EMA, trend, outliers, LTTB decimation - above the backend line |
 | `core/detect/` | `Detector` protocol, YuNet, null detector, registry |
@@ -27,7 +33,7 @@ both OS layouts are exercised from either one. What exists:
 | `core/dataset/archive.py` | Tar streaming, with extraction that refuses to escape |
 | `core/backends/` | `TrainingBackend` protocol, `RunSpec`, model registry |
 | `core/backends/aitoolkit.py` | **FLUX.2, Klein and Krea 2 in one config-driven class** |
-| `daemon/` | 30 endpoints, task runner, SSE, persistent job queue, token and path scoping |
+| `daemon/` | 47 endpoints, task runner, SSE, persistent job queue, token and path scoping |
 | `cli/` | `fk` — a real API client: dataset ops, push, fleet, jobs, `serve` |
 | `web/` | The browser client: gallery, mask review, training config + monitor, settings |
 | `web/tests/` | Component tests — mount lifecycle, submitted payloads, what a dialog says before it acts |
@@ -47,11 +53,12 @@ client, so there is one thing to deploy per node.
 not Klein-through-ai-toolkit, which works today). The fleet view is not
 being built as a node-served UI at all — see the decision below.
 
-**Not yet proved:** a full-length run. What has been trained is a 40-step
-smoke test at 512, which proves the pipeline and nothing about the LoRA.
-The first real question a long run will answer is whether the loss regexes
-hold across thousands of steps and whether the 9B and Krea 2 paths behave
-like the 4B one.
+**Trained so far:** Klein 4B (40-step verification) and Klein 9B (4,440
+steps, masked, to completion). **Not yet trained:** Krea 2 and FLUX.2 dev.
+They share the code path but not the memory profile, and dev is 32B on a
+32GB card — the one model where the layer-offload percentages decide
+whether the run happens at all, and they have never been exercised against
+a real trainer.
 
 ### FLUX.2 trains, for real
 
@@ -70,6 +77,14 @@ written. What a first real run found, and no test had:
 * **Our config filename collided with ai-toolkit's resume glob.** See the
   decision list.
 * **Loss was double-counted.** See the decision list.
+
+Then a full-length run, on the same card: **Klein 9B, 4,440 steps, 512,
+masked, `quantize: false` and no offloading at all** — `Output/femj-flux2`,
+with the three rotated checkpoints and the final one beside twelve sample
+grids. That run is where `memory.py` came from. It also settled the two
+questions a 40-step run could not: the step and loss regexes hold over
+thousands of steps, and `max_step_saves_to_keep: 3` rotates the way it
+claims to.
 
 ### FLUX.2 config generation
 
@@ -122,41 +137,79 @@ many nodes there are and whether they are named consistently, and the
 package name. **Resolved: FLUX.2 first** — P4 shipped as the ai-toolkit
 backend, which covers FLUX.2, both Klein sizes and Krea 2 together.
 
-One design leftover: the state-surface tints are not normalised. Success,
-running, paused and several amber depths are still floating as literals
-in the screen compositions rather than tokens. Not blocking; fix before
-P6.
+One design leftover, carried into "Start here" below: the state-surface
+tints are not normalised. Success, running, paused and several amber
+depths are still literals in the screen compositions rather than tokens.
+It was marked "fix before P6" and P6 shipped without it, which is worth
+knowing before the next screen is written on top of them.
 
 ## Start here
 
-The first real run has happened, and it found three things no test could
-(see "FLUX.2 trains, for real" above). The next questions are the ones a
-*long* run answers.
+The pipeline is proved. What follows are the gaps a long run and a week of
+real use exposed, roughly in the order they will bite.
 
-**Run something at full length.** 47 images x 10 repeats x 6 epochs is
-2,820 steps; the monitor now has a measured seconds-per-step for flux2 on
-this node, so it will estimate the wall clock before you commit to it.
-Watch for: whether the step and loss regexes hold over thousands of steps
-rather than forty, whether checkpoint rotation
-(`max_step_saves_to_keep: 3`) behaves, and whether a run that is
-cancelled mid-flight leaves the queue and the output folder in a state the
-next run is happy with.
+**The loss series does not survive a daemon restart.** `Job.persisted()`
+writes the id, status, spec and timestamps; the `LossSeries` and the event
+stream are explicitly excluded ("threads and buffers do not survive"). So
+a daemon restarted mid-run — which is exactly what a code change requires,
+and the staleness banner now tells you to do — comes back with the job
+listed and its curve gone. The queue file is the obvious home; the
+question worth deciding first is whether to write every point or only the
+decimated series, because a 20,000-step run is 20,000 rows either way.
 
-**Then the other three models.** Only Klein 4B has actually trained. Klein
-9B, Krea 2 and FLUX.2 dev share the code path but not the memory profile:
-9B and dev push the text encoder to CPU, and `low_vram` is a guess per
-model until a card disagrees. FLUX.2 dev is also the only one not on this
-node's disk, so it is the one that tests the HuggingFace path.
+**Krea 2 and FLUX.2 dev.** Klein 4B and 9B have trained; the other two
+have not. `memory.py` will plan them without ever having seen them fail,
+and dev is the model that tests both the HuggingFace download path and the
+partial layer offload. Expect the first dev run to find something, the way
+the first Klein run found three things.
 
-**Then P5 — the Klein backend**: porting the standalone `klein_trainer/`
-(4,165 lines) and wrapping it in the protocol. Note that Klein *through
-ai-toolkit* already works, so P5 is only worth the effort if the
-standalone trainer does something the ai-toolkit path does not.
+**P5 — the Klein backend**, and only if it earns it. Klein *through*
+ai-toolkit works and has now trained a real LoRA, so porting the
+standalone `klein_trainer/` (4,165 lines) is worth doing only for
+something the ai-toolkit path cannot do. Its analytics — the original
+reason P5 mattered — are already lifted into `core/analytics/loss.py` and
+running for every backend, so that half of the phase is done and the
+remaining half needs a reason.
 
-Either way, `analytics/loss.py` is the piece that pays for itself: lift
-Klein's trend detection, outliers and EMA above the backend line so every
-backend gets them from the `LossPoint` stream. The queue already keeps the
-series (`GET /jobs/{id}/loss`); nothing derives from it yet.
+**P7 — the fleet view, on the operator's machine.** Deliberately not in
+the node-served client (see the decision below). `fk fleet status` is what
+exists; a fleet UI is a separate client over the same API, and the node
+list lives with the operator rather than with any node.
+
+**One design leftover, still open.** The state-surface tints are not
+normalised — success, running, paused and several amber depths are
+literals in the screen compositions rather than tokens. It was marked
+"fix before P6"; P6 shipped without it.
+
+## This machine, concretely
+
+Vulcan — Windows 11, RTX 5090 (31.8GB). What a new session needs and
+cannot read off the tree:
+
+| | |
+|---|---|
+| Config | `%APPDATA%\FluxKrea\config.toml` — `fk config show` prints the resolved version and its source |
+| Daemon | `127.0.0.1:8471`. Start it with `.\serve.ps1`, from a terminal that is yours |
+| Interpreter | `.venv\Scripts\python.exe`. **No torch, on purpose** |
+| ai-toolkit | `D:\Projects_26\AI_Image_Trainer\ai-toolkit-krea2`, run with **v1's** interpreter at `AI_Image_Trainer\.venv` |
+| Weights | Found in `D:\Projects_26\Comfyu\ComfyUI`, full precision preferred over fp8 |
+| Output | `Output/` in the project folder — three runs in it, `femj-flux2` being the full-length one |
+| Datasets | Rooted at `D:\Projects_26\LoRA_Training_data` |
+
+`fk config show` reporting `source: None` means no config file was found,
+which surfaces as "no datasets registered" and sends you looking in the
+wrong place entirely. It happens when the daemon is launched through a
+chain of shells that loses the environment; started from a normal
+PowerShell with `serve.ps1` it resolves every time.
+
+Two loose ends, so they do not read as bugs:
+
+* `config.toml` has a `dataset.roots` entry pointing into a Claude session
+  scratchpad, left behind by a test. Harmless, and it now points at a
+  folder that no longer exists.
+* `DELETE /config/roots` exists and nothing calls it. The picker *adds* a
+  root when you register a dataset outside them ("Add + allow"); removing
+  one means editing `config.toml` by hand.
 
 ## Decisions taken during the build
 
@@ -344,6 +397,47 @@ Places where the spec left room and the code had to pick:
 - **A masked run validates before it launches.** `require_masks` runs as a
   preflight, because ai-toolkit trains an image with no matching mask
   unmasked and says nothing.
+- **A daemon that is running edited code says so.** Python loads a module
+  once, so a daemon started before a change keeps running the code from
+  before it - with no symptom except behaviour that does not match the
+  source. That cost a real run: the memory fix landed, the run was
+  restarted, and the daemon generated a config from the old module for two
+  thousand steps while I read the new one. `State.stale()` compares the
+  newest `.py` mtime under the package against the daemon's start time, on
+  every health poll, and the client shows a banner on every screen. It
+  latches - once stale, always stale, because a file can be edited back.
+- **The daemon is started by a script the operator owns.** It was being
+  launched from whatever session happened to be open, which made its
+  lifetime an accident of mine: an agent session ending took a training run
+  with it. `serve.ps1` / `serve.cmd` / `serve.sh` run it in the foreground
+  of a window a person opened, refuse to start a second one on a port that
+  is already listening, mirror everything to `logs/daemon.log`, and keep
+  the window open on a crash. Three PowerShell 5.1 details are load-bearing
+  and commented in place: stderr is output rather than failure, a native
+  command's stderr arrives as `ErrorRecord` objects, and `Tee-Object` has
+  no `-Encoding` and writes UTF-16.
+- **A trend is a slope that beats its own uncertainty.** The tile compared
+  the fitted change to the level of the series, which sounds principled and
+  says nothing about how much of that change the noise could have produced
+  on its own: against forty flat-but-noisy series shaped like a real run, a
+  5%-of-level rule called 68% of them "improving" or "degrading". It now
+  fits over the last third of the run - a fixed 100-point window measured
+  the last 2% of a 4,440-step run and flipped verdict depending on where it
+  ended - requires the slope to clear three standard errors, and fits the
+  raw points rather than the EMA, whose neighbouring values are nearly the
+  same number and so understate the real uncertainty. Swept against forty
+  flat and forty genuinely falling series: zero false directions, every
+  real fall caught.
+- **A tile that cannot answer says so.** The outliers tile named the worst
+  images by loss, which on flow matching is mostly a statement about which
+  timestep each one drew. With no per-image attribution in the stream it
+  shows an em dash and the reason, rather than a confident list of innocent
+  files.
+- **Unset knobs stay out of the generated config.** ai-toolkit defaults
+  both layer-offload percentages to 1.0, so `layer_offloading: true` alone
+  puts the whole model on the CPU: it runs, and it crawls. The percentages
+  are exposed now, and anything not set is omitted rather than restated at
+  ai-toolkit's own default - a restated default is a copy that drifts.
 
 ## Things to carry in your head
 

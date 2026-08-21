@@ -3,17 +3,19 @@
 A rewrite of the LoRA training GUI at `D:\Projects_26\AI_Image_Trainer`,
 targeting FLUX.2 Klein and Krea 2 across a distributed lab fleet.
 
-**Status: FLUX.2 trains, end to end, on real hardware.** A LoRA has been
-produced from a real dataset through this stack — dataset registered in
-the browser, captioned locally, validated, configured, queued, trained on
-ai-toolkit, loss and samples streamed back to the monitor, checkpoint
-written. The headless core, the per-node daemon and its API, `fk` as a
-full API client, the ai-toolkit backend (**FLUX.2, both Klein sizes and
-Krea 2 through one config-driven class**) and the browser client the
-daemon serves are all built and green.
+**Status: FLUX.2 trains, end to end, on real hardware.** A 4,440-step
+masked Klein 9B LoRA has been produced from a real dataset through this
+stack — dataset registered in the browser, captioned locally by a vision
+model on the same machine, faces detected and reviewed, masks exported,
+validated, configured, queued, trained on ai-toolkit, loss and samples
+streamed back to the monitor, checkpoints rotated. The headless core, the
+per-node daemon and its API, `fk` as a full API client, the ai-toolkit
+backend (**FLUX.2, both Klein sizes and Krea 2 through one config-driven
+class**) and the browser client the daemon serves are all built and green.
 
-Not built: the standalone Klein trainer. v1 stays the working tool until
-v2 has trained something worth keeping.
+Trained so far: Klein 4B and Klein 9B. Krea 2 and FLUX.2 dev share the
+code path but have not been run. Not built: the standalone Klein trainer.
+v1 stays the working tool until v2 has trained something worth keeping.
 
 ## Why rewrite
 
@@ -86,7 +88,9 @@ a client of that API rather than the thing that owns the logic. See
 | [10 — graphics stack](docs/10-graphics-stack.md) | Rendering, canvas, charts, virtualization, budgets |
 
 Docs 07–10 are the design catalog — written to be handed to design work
-as input, not produced by it.
+as input, not produced by it. [CLAUDE.md](CLAUDE.md) is the short version
+for a coding session: the commands, the rules a test enforces, and the
+ones that cost a real training run.
 
 ## Setting up a node
 
@@ -114,6 +118,23 @@ Output/<run>/_fluxkrea.yaml            the generated config
 Output/<run>/<run>_000000400.safetensors
 Output/<run>/samples/
 ```
+
+## Building the client
+
+The daemon serves the *built* client from `web/dist`, so a source change
+is not live until it is rebuilt — and a browser holding the old bundle
+will happily show you yesterday's UI.
+
+```bash
+cd web
+npm ci
+npm run build
+```
+
+`npm run dev` is the Vite server for working on the client; it proxies the
+API to the daemon, so run both. The banner at the top of every screen
+warns when the *daemon* is running Python that has since been edited —
+that one needs a restart, not a rebuild.
 
 ## Running the daemon
 
@@ -171,8 +192,8 @@ nothing under `core/` imports a UI toolkit.
 ## Tests
 
 ```bash
-pytest                    # 701 — core, daemon, CLI, backends
-cd web && npm test        # 50  — component tests for the browser client
+pytest                    # 731 — core, daemon, CLI, backends
+cd web && npm test        # 55  — component tests for the browser client
 ```
 
 The component tests exist because of a specific failure: the training form

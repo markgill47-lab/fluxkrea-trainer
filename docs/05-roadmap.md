@@ -19,6 +19,21 @@ Port-vs-rewrite, decided up front:
 
 Each phase ends somewhere usable, not mid-refactor.
 
+**Where this stands: P0–P4 and P6 are done, in that order plus P6 out of
+sequence.** P5 is deliberately unstarted — see below. P7 and P8 remain.
+
+| | | |
+|---|---|---|
+| P0 | Scaffold | done |
+| P1 | Dataset core, headless | done |
+| P2 | Face masking | done |
+| P3 | Daemon and API | done |
+| P4 | Backends | done — FLUX.2 has trained a real LoRA |
+| P5 | Klein backend | **not started, and may not be worth starting** |
+| P6 | Web client | done |
+| P7 | Fleet view | not started — and not in the node-served client |
+| P8 | Cutover | not started; v1 is still the working tool |
+
 **P0 — Scaffold.** `pyproject.toml`, package skeleton, `core/paths.py`,
 typed config, event types, test harness, the no-UI-in-core guard test.
 Windows and Linux both green.
@@ -55,6 +70,12 @@ what v1 produces locally.
 Lift Klein's analytics — trend, outliers, EMA, export — up into
 `analytics/loss.py` so both backends gain them.
 
+*Half of this is already done, and the other half needs a reason.* The
+analytics were lifted during P6 and now run for every backend from the
+`LossPoint` stream. Klein itself trains today through the ai-toolkit
+backend — 4B and 9B both — so porting the standalone trainer is worth the
+4,165 lines only if it does something that path cannot.
+
 **P6 — Web client.** Gallery, the mask review canvas, config, training
 monitor. Served as static assets by the daemon. The review canvas is the
 piece that most needs to be pleasant, and the API-driven file browsing
@@ -62,7 +83,11 @@ is the piece that most needs design attention, since there is no native
 picker to fall back on.
 
 **P7 — Fleet view.** Node list, aggregate status, job placement,
-cross-node queue visibility.
+cross-node queue visibility. **On the operator's machine, not in the
+node-served client** — a node that knows about every other node can also
+reach every other node, and the API is remote code execution. Decided
+during P6; the reasoning is in
+[00](00-build-handoff.md#decisions-taken-during-the-build).
 
 **P8 — Cutover.** Install scripts for both platforms, Olympus
 deployment, v1 archived.
@@ -104,27 +129,31 @@ is submitted.
 
 ## Open questions
 
-1. **Does the v1 training GUI launch from `flux_aitoolkit_manager.py`,
-   or do you hand-run `configs/*.yaml`?** Determines whether the
-   generated config is a real artifact or a fiction the GUI maintains,
-   and where `mask_path` has to be threaded through.
+One left:
 
-2. **Klein 4B/9B vs Krea 2 — which is primary now?** v1's README says
-   Klein; every recent config says Krea 2. Whichever it is gets its
-   backend ported first (P4 vs P5 order).
+1. **How many nodes, and are they named/reachable consistently?** The
+   fleet file needs stable names and tunnel ports. It did not block P3 —
+   `fleet.toml` is read only by `cli/fleet.py` and nothing else — but it
+   is the first thing P7 needs.
 
-3. **How many nodes, and are they named/reachable consistently?** The
-   fleet file needs stable names and tunnel ports; worth fixing a
-   convention before P3 rather than after.
+Resolved since:
 
-4. **Web client stack.** Narrowed to four expensive-to-reverse choices —
-   framework, virtualizer, chart approach, icon set. See
-   [10](10-graphics-stack.md#what-to-decide-before-building).
-
-5. **Package name.** Scaffolded as `fluxkrea` inside
-   `D:\Projects_26\FluxKrea_Trainer26`. Free to change now, annoying
-   later.
-
-Resolved: Kohya dropped ([01](01-v1-audit.md#dropped-kohya--sd-scripts));
-UI is a web client ([02](02-architecture.md#ui-layer-web-client));
-dataset storage is node-local ([06](06-remote-and-fleet.md#dataset-placement)).
+- **The generated config is a real artifact.** The ai-toolkit backend
+  renders one per run and it is the only thing the trainer is given;
+  `mask_path` is threaded through the dataset block. Verified against
+  ai-toolkit's own `get_job()`, not against our expectations.
+- **Klein vs Krea 2 stopped being a choice.** They are one config-driven
+  class, so P4 shipped both plus FLUX.2 dev. Klein 4B and 9B have trained;
+  Krea 2 has not been run yet, but it does not need a different backend.
+- **Web client stack:** Preact, TanStack Virtual, uPlot, Lucide, all four
+  in use ([10](10-graphics-stack.md#what-to-decide-before-building)). The
+  log viewer deviates on one point — one line per row with horizontal
+  scroll rather than wrapping, because measuring wrapped rows drew them on
+  top of each other.
+- **Package name:** `fluxkrea`, and it is now published at
+  `github.com/markgill47-lab/fluxkrea-trainer`. Past the point where it is
+  free to change.
+- Kohya dropped ([01](01-v1-audit.md#dropped-kohya--sd-scripts)); UI is a
+  web client ([02](02-architecture.md#ui-layer-web-client)); dataset
+  storage is node-local
+  ([06](06-remote-and-fleet.md#dataset-placement)).
