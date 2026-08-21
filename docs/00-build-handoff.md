@@ -190,6 +190,18 @@ Places where the spec left room and the code had to pick:
   shows nothing at all when there are none - because somebody plans an
   evening around that number. Runs under 50 steps are ignored: they
   describe model load and caching, not the per-step rate.
+- **A screen that can start an expensive job does not own the state that
+  decides what it starts.** The training form kept its settings locally,
+  so switching to the monitor and back unmounted it and silently reset
+  every field - the dataset falling back to the first registered one. A
+  run then trained the wrong images and said nothing, which cost a real
+  run. The form's state lives in the screen above it and in
+  sessionStorage, and the dataset is app-wide rather than a second
+  selection that can drift from the one in the top bar.
+- **A screen that can start an expensive job restates what it is about to
+  do.** The dataset id, its path and its image count sit directly above
+  the button. A typed run name is not evidence of the dataset that was
+  picked.
 - **Training settings lock while a run is going, rather than hiding.** The
   settings a run is using are worth reading while it runs. A field that
   accepts an edit which changes nothing is the thing to avoid.

@@ -121,6 +121,9 @@ export function TrainForm({
   models,
   devices,
   locked,
+  form,
+  setForm,
+  onDataset,
   onSubmitted,
   onError,
 }: {
@@ -129,25 +132,31 @@ export function TrainForm({
   devices: number;
   /** A run is going. Every control goes read-only. */
   locked: boolean;
+  /**
+   * Owned by the parent, which outlives this component. When this held its
+   * own state, switching to the monitor and back silently reset every
+   * field - including the dataset, which fell back to the first registered
+   * one and trained the wrong images without saying so.
+   */
+  form: FormState;
+  setForm(update: (current: FormState) => FormState): void;
+  /** The dataset is app-wide state; changing it here changes it everywhere. */
+  onDataset(id: string): void;
   onSubmitted(jobId: string): void;
   onError(message: string | null): void;
 }) {
-  const [form, setForm] = useState<FormState>(DEFAULTS);
   const [plan, setPlan] = useState<RunPlan | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
 
-  // Pick something real the moment the lists arrive, rather than showing a
-  // form that cannot be submitted.
+  // Pick a model the moment the list arrives, rather than showing a form
+  // that cannot be submitted. The dataset is not defaulted here - it comes
+  // from the shell, so there is one selection rather than two that drift.
   useEffect(() => {
-    setForm((current) => ({
-      ...current,
-      model: current.model || models[0]?.id || "",
-      dataset: current.dataset || datasets[0]?.id || "",
-    }));
-  }, [models, datasets]);
+    setForm((current) => ({ ...current, model: current.model || models[0]?.id || "" }));
+  }, [models, setForm]);
 
   // The model's own rank is a better starting point than a global default.
   useEffect(() => {
@@ -233,12 +242,15 @@ export function TrainForm({
         </div>
         {plan && <div class="train__basis">{plan.basis}</div>}
 
-        <Row label="Dataset">
+        <Row
+          label="Dataset"
+          hint={chosenDataset ? chosenDataset.path : "no dataset selected"}
+        >
           <select
             class="field__input"
             value={form.dataset}
             disabled={disabled}
-            onChange={(e) => set("dataset", (e.target as HTMLSelectElement).value)}
+            onChange={(e) => onDataset((e.target as HTMLSelectElement).value)}
           >
             {datasets.length === 0 && <option value="">no datasets registered</option>}
             {datasets.map((entry) => (
@@ -427,21 +439,40 @@ export function TrainForm({
         )}
       </section>
 
-      <div class="train__actions">
-        <button
-          type="button"
-          class="btn btn--accent"
-          disabled={disabled || !form.model || !form.dataset || steps < 1}
-          onClick={() => void submit()}
-        >
-          {submitting ? <span class="spinner" /> : null}
-          Start training
-        </button>
-        <span class="train__actions-note">
-          {steps > 0
-            ? `${steps.toLocaleString()} steps${plan?.duration ? `, about ${plan.duration}` : ""}`
-            : "nothing to train — check the dataset"}
-        </span>
+      {/* What is actually about to be trained, spelled out at the moment of
+       * commitment. A run that trains the wrong folder is expensive and
+       * silent, and the name someone typed is not evidence of the dataset
+       * they picked. */}
+      <div class="train__commit">
+        <div class="train__commit-line">
+          <span class="train__commit-label">Training</span>
+          <strong>{form.dataset || "— no dataset —"}</strong>
+          <span class="train__commit-count tabular">
+            {plan ? `${plan.images} image${plan.images === 1 ? "" : "s"}` : "…"}
+          </span>
+        </div>
+        {chosenDataset && (
+          <div class="train__commit-path mono" title={chosenDataset.path}>
+            {chosenDataset.path}
+          </div>
+        )}
+
+        <div class="train__actions">
+          <button
+            type="button"
+            class="btn btn--accent"
+            disabled={disabled || !form.model || !form.dataset || steps < 1}
+            onClick={() => void submit()}
+          >
+            {submitting ? <span class="spinner" /> : null}
+            Start training
+          </button>
+          <span class="train__actions-note">
+            {steps > 0
+              ? `${steps.toLocaleString()} steps${plan?.duration ? `, about ${plan.duration}` : ""}`
+              : "nothing to train — check the dataset"}
+          </span>
+        </div>
       </div>
     </form>
   );

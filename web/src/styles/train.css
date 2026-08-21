@@ -416,3 +416,42 @@
   font-weight: 400;
   color: var(--text-tertiary);
 }
+
+/* -- what is about to be trained ------------------------------------------ */
+
+/* Raised out of the form flow. A run that trains the wrong folder is
+ * expensive and silent, so the dataset is restated at the point of
+ * commitment rather than left three panels up the page. */
+.train__commit {
+  padding: 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+}
+
+.train__commit-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.train__commit-label {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.train__commit-count {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.train__commit-path {
+  padding: 2px 0 10px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

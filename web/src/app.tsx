@@ -177,7 +177,14 @@ export function App() {
             <NoDataset onAdd={() => setPicking(true)} />
           ))}
 
-        {screen === "training" && <TrainScreen datasets={datasets} onError={setError} />}
+        {screen === "training" && (
+          <TrainScreen
+            datasets={datasets}
+            dataset={dataset}
+            onDataset={setDataset}
+            onError={setError}
+          />
+        )}
 
         {screen === "settings" && <SettingsScreen onError={setError} />}
       </main>

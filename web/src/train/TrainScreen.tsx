@@ -7,24 +7,51 @@
  * almost certainly came here to look at it, and if nothing is you came to
  * start one. The choice is then yours; it is not re-decided under you when
  * a run happens to finish.
+ *
+ * **The form's state lives here, and in sessionStorage.** Switching views
+ * unmounts the form, and when the form owned its own state that silently
+ * reset every field — including the dataset, which fell back to the first
+ * registered one. A run then trained the wrong images and said nothing,
+ * which is the most expensive kind of bug this screen can have. Persisting
+ * also survives the tab switch to Datasets and back, and a reload after a
+ * tunnel drops.
  */
 
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { api, ApiError, isAbort } from "~/api/client";
 import type { Dataset, Job, ModelInfo } from "~/api/types";
 import { MonitorScreen } from "~/monitor/MonitorScreen";
-import { TrainForm } from "./TrainForm";
+import { DEFAULTS, type FormState, TrainForm } from "./TrainForm";
 
 type View = "configure" | "monitor";
 
 /** How often to re-check whether a run is going. */
 const POLL = 4000;
 
+const SAVED = "fluxkrea.train.form";
+
+function restore(): FormState {
+  try {
+    const raw = sessionStorage.getItem(SAVED);
+    if (!raw) return DEFAULTS;
+    // Spread over the defaults so a field added since this was written
+    // arrives with its default rather than as undefined.
+    return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<FormState>) };
+  } catch {
+    return DEFAULTS;
+  }
+}
+
 export function TrainScreen({
   datasets,
+  dataset,
+  onDataset,
   onError,
 }: {
   datasets: Dataset[];
+  /** The shell's current dataset. One selection for the whole app. */
+  dataset: string | null;
+  onDataset(id: string): void;
   onError(message: string | null): void;
 }) {
   const [view, setView] = useState<View | null>(null);
@@ -32,7 +59,27 @@ export function TrainScreen({
   const [devices, setDevices] = useState(1);
   const [active, setActive] = useState<Job | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
+  const [form, setFormState] = useState<FormState>(restore);
   const chosen = useRef(false);
+
+  const setForm = useCallback((update: (current: FormState) => FormState) => {
+    setFormState((current) => {
+      const next = update(current);
+      try {
+        sessionStorage.setItem(SAVED, JSON.stringify(next));
+      } catch {
+        // A full or disabled store is not a reason to lose the edit.
+      }
+      return next;
+    });
+  }, []);
+
+  // The dataset is the shell's, not the form's. Mirrored into the form so
+  // `toSpec` has one place to read it from, and so a dataset that vanishes
+  // from the registry does not leave a stale id behind.
+  useEffect(() => {
+    setForm((current) => (current.dataset === (dataset ?? "") ? current : { ...current, dataset: dataset ?? "" }));
+  }, [dataset, setForm]);
 
   const poll = useCallback(async () => {
     try {
@@ -135,6 +182,9 @@ export function TrainScreen({
             models={models}
             devices={devices}
             locked={active !== null}
+            form={form}
+            setForm={setForm}
+            onDataset={onDataset}
             onSubmitted={onSubmitted}
             onError={onError}
           />
