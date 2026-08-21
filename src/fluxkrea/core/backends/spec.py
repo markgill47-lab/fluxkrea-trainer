@@ -70,4 +70,32 @@ class RunSpec:
         return spec
 
 
-__all__ = ["RunSpec"]
+def run_name(spec: RunSpec) -> str:
+    """The one name a run is known by - folder, config file and label.
+
+    Derived in exactly one place because it was derived in two, and they
+    disagreed: the daemon built the output folder from the dataset's
+    *basename* while the backend slugged the dataset's whole absolute
+    path. The config landed somewhere other than its own run, and on
+    Windows the doubled path went past MAX_PATH and surfaced as a bare
+    FileNotFoundError with no hint that a name was the problem.
+
+    A path is never part of a name. ``Blizzard_Training`` is what a person
+    calls that dataset; the 60 characters in front of it are the machine's
+    business.
+    """
+    from ..dataset.naming import slug
+
+    if spec.name.strip():
+        return slug(spec.name)
+
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    raw = spec.dataset.strip().rstrip("/\\")
+    # A dataset is an id here or a path there, and this runs on both
+    # platforms - so try both separators rather than trusting os.sep.
+    stem = PureWindowsPath(raw).name if "\\" in raw else PurePosixPath(raw).name
+    return slug(f"{spec.model}-{stem or spec.dataset}")
+
+
+__all__ = ["RunSpec", "run_name"]

@@ -190,6 +190,17 @@ Places where the spec left room and the code had to pick:
   shows nothing at all when there are none - because somebody plans an
   evening around that number. Runs under 50 steps are ignored: they
   describe model load and caching, not the per-step rate.
+- **A run's name is derived in exactly one place, and never contains a
+  path.** It was derived in two: the daemon used the dataset's basename for
+  the output folder, the backend slugged the dataset's whole absolute path
+  for the config. They disagreed, so the config was written outside the run
+  it described - and on Windows the doubled path reached 264 characters,
+  past MAX_PATH, which surfaces as `FileNotFoundError` on a file the code
+  had just tried to create. `core/backends/spec.py::run_name` is now the
+  only derivation, and `config_path` sits inside the run's own output.
+- **A failed config write says why.** Windows reports a too-long path as a
+  missing file, which sends you looking for the wrong thing. The write is
+  wrapped and re-raised with the length, the path, and the three ways out.
 - **A screen that can start an expensive job does not own the state that
   decides what it starts.** The training form kept its settings locally,
   so switching to the monitor and back unmounted it and silently reset

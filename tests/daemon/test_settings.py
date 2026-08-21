@@ -373,3 +373,52 @@ def test_a_plan_needs_a_dataset(api: httpx.Client) -> None:
 
 def test_a_plan_for_an_unknown_dataset_is_a_404(api: httpx.Client) -> None:
     assert api.post("/jobs/plan", json={"dataset": "nope"}).status_code == 404
+
+
+# --------------------------------------------------------------------------
+# run naming and the config path
+# --------------------------------------------------------------------------
+
+
+def test_the_config_lands_inside_the_run_it_belongs_to(api: httpx.Client, tmp_path: Path) -> None:
+    """The two derivations that disagreed, pinned to agree.
+
+    The daemon builds the output folder and the backend builds the config
+    path. When those differed, the config was written outside its own run -
+    and the doubled path went past Windows' MAX_PATH, which is what the
+    failure actually looked like.
+    """
+    from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
+    from fluxkrea.core.backends.spec import RunSpec, run_name
+
+    root = tmp_path / "runs"
+    backend = AIToolkitBackend(output_root=root)
+    spec = RunSpec(model="flux2", dataset=(tmp_path / "Blizzard_Training").as_posix())
+
+    # What the daemon would set as the output folder.
+    output = root / run_name(spec)
+    resolved = RunSpec(**{**spec.as_dict(), "output": output.as_posix()})
+
+    assert backend.config_path(resolved).parent == output
+    # And with no output set, the backend derives the same folder anyway.
+    assert backend.config_path(spec).parent == output
+
+
+def test_a_long_run_name_explains_itself_rather_than_going_missing(tmp_path: Path) -> None:
+    """FileNotFoundError on a file the code just tried to create is a riddle."""
+    import os
+
+    import pytest
+
+    from fluxkrea.core.backends import BackendError
+    from fluxkrea.core.backends.aitoolkit import AIToolkitBackend
+    from fluxkrea.core.backends.spec import RunSpec
+
+    if os.name != "nt":
+        pytest.skip("MAX_PATH is a Windows limit")
+
+    backend = AIToolkitBackend(output_root=tmp_path / "runs")
+    spec = RunSpec(model="flux2", dataset="d", name="x" * 200, steps=10)
+
+    with pytest.raises(BackendError, match="past Windows'"):
+        backend.generate_config(spec)

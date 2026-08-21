@@ -24,7 +24,7 @@ from ..core import paths
 from ..core.backends import BackendError, TrainingBackend, supported_by
 from ..core.dataset import validate
 from ..core.events import Emitter, Log, safe
-from ..core.backends.spec import RunSpec
+from ..core.backends.spec import RunSpec, run_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from .queue import Job
@@ -135,9 +135,12 @@ def resolve(state: State, spec: RunSpec, emit: Emitter = None) -> RunSpec:
         resolved = replace(resolved, mask_path=paths.masks_dir(folder).as_posix())
 
     if not resolved.output:
-        name = resolved.name or f"{resolved.model}-{folder.name}"
+        # The same derivation the backend uses. Two of these disagreed once
+        # and the config was written outside the run it belonged to.
         root = state.config.backends.output_root or paths.runs_dir()
-        resolved = replace(resolved, output=(paths.expand(root) / name).as_posix())
+        resolved = replace(
+            resolved, output=(paths.expand(root) / run_name(resolved)).as_posix()
+        )
 
     return resolved
 

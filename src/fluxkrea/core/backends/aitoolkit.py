@@ -43,7 +43,7 @@ from .models import Model, UnknownModel
 from .models import find as find_model
 from .models import get as get_model
 from .process import ProcessRunner, python_executable
-from .spec import RunSpec
+from .spec import RunSpec, run_name as spec_run_name
 
 #: ai-toolkit's entry point, relative to its checkout.
 RUNNER = "run.py"
@@ -202,21 +202,30 @@ class AIToolkitBackend:
         payload = self.build(run, model)
 
         target = self.config_path(run)
-        paths.ensure_dir(target.parent)
-        target.write_text(
-            HEADER + yaml.dump(payload, default_flow_style=False, sort_keys=False),
-            encoding="utf-8",
-        )
+        body = HEADER + yaml.dump(payload, default_flow_style=False, sort_keys=False)
+        try:
+            paths.ensure_dir(target.parent)
+            target.write_text(body, encoding="utf-8")
+        except OSError as exc:
+            raise BackendError(_write_failure(target, exc)) from exc
         return target
 
     def config_path(self, run: RunSpec) -> Path:
-        root = self.output_root or paths.runs_dir()
-        return paths.expand(root) / self.run_name(run) / f"{self.run_name(run)}.yaml"
+        """Beside the run's own output, not in a folder of its own.
+
+        The config describes exactly one run and is rewritten on every
+        submission, so it belongs with the checkpoints and samples it
+        produced. It used to derive its own folder, which could - and did -
+        differ from the one the run actually wrote into.
+        """
+        name = self.run_name(run)
+        folder = paths.expand(run.output) if run.output else (
+            paths.expand(self.output_root or paths.runs_dir()) / name
+        )
+        return folder / f"{name}.yaml"
 
     def run_name(self, run: RunSpec) -> str:
-        from ..dataset.naming import slug
-
-        return slug(run.name) if run.name else slug(f"{run.model}-{run.dataset}")
+        return spec_run_name(run)
 
     def build(self, run: RunSpec, model: Model | None = None) -> dict[str, Any]:
         """The config, as a dict. Split out so a test can read it."""
@@ -436,5 +445,29 @@ def _looks_like_path(value: Any) -> bool:
 
 #: Registered at import time, so ``supported_by`` finds it.
 BACKEND = register(AIToolkitBackend())
+
+#: Windows refuses paths past this unless long paths are enabled, and
+#: reports it as a plain "no such file or directory" - which sends you
+#: looking for a missing file rather than a name that is too long.
+WINDOWS_MAX_PATH = 260
+
+
+def _write_failure(target: Path, exc: OSError) -> str:
+    """Turn a failed config write into something that names the cause.
+
+    A run whose name came from a full dataset path produced a 264-character
+    config path here, and the only symptom was FileNotFoundError on a file
+    the code had just tried to create.
+    """
+    length = len(str(target))
+    if os.name == "nt" and length > WINDOWS_MAX_PATH:
+        return (
+            f"cannot write the run config: the path is {length} characters, past "
+            f"Windows' {WINDOWS_MAX_PATH}-character limit.\n  {target}\n"
+            "Give the run a shorter name, point backends.output_root at a "
+            "shallower folder, or enable long paths on this node."
+        )
+    return f"cannot write the run config to {target}: {exc}"
+
 
 __all__ = ["BACKEND", "AIToolkitBackend", "OutputParser", "UnknownModel"]

@@ -146,3 +146,51 @@ def test_durations_read_the_way_people_say_them() -> None:
 def test_no_duration_is_an_empty_string_not_a_zero() -> None:
     assert human_duration(None) == ""
     assert human_duration(0) == ""
+
+
+# --------------------------------------------------------------------------
+# run naming
+# --------------------------------------------------------------------------
+
+
+def test_a_name_never_contains_a_path() -> None:
+    """A 264-character config path, reported as FileNotFoundError.
+
+    The daemon derived the run folder from the dataset's basename and the
+    backend slugged the dataset's whole absolute path. They disagreed, the
+    config landed outside its own run, and on Windows the doubled path went
+    past MAX_PATH - surfacing as a missing file rather than a long name.
+    """
+    from fluxkrea.core.backends.spec import RunSpec, run_name
+
+    spec = RunSpec(model="flux2", dataset="D:/Projects_26/LoRA_Training_data/Blizzard/Blizzard_Training")
+    assert run_name(spec) == "flux2-blizzard-training"
+    assert "projects" not in run_name(spec)
+
+
+def test_the_name_is_the_same_whichever_separator_the_path_used() -> None:
+    """The desk is Windows and the fleet is Linux; one run, one name."""
+    from fluxkrea.core.backends.spec import RunSpec, run_name
+
+    posix = RunSpec(model="flux2", dataset="D:/data/Blizzard_Training")
+    windows = RunSpec(model="flux2", dataset=r"D:\data\Blizzard_Training")
+    assert run_name(posix) == run_name(windows) == "flux2-blizzard-training"
+
+
+def test_a_dataset_id_works_as_well_as_a_path() -> None:
+    from fluxkrea.core.backends.spec import RunSpec, run_name
+
+    assert run_name(RunSpec(model="flux2", dataset="blizzard-training")) == "flux2-blizzard-training"
+
+
+def test_a_trailing_separator_does_not_empty_the_name() -> None:
+    from fluxkrea.core.backends.spec import RunSpec, run_name
+
+    assert run_name(RunSpec(model="flux2", dataset="D:/data/poses/")) == "flux2-poses"
+
+
+def test_an_explicit_name_wins_and_is_slugged() -> None:
+    from fluxkrea.core.backends.spec import RunSpec, run_name
+
+    spec = RunSpec(model="flux2", dataset="D:/data/poses", name="Mara v3")
+    assert run_name(spec) == "mara-v3"
