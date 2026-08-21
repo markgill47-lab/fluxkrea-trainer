@@ -141,3 +141,83 @@ def test_image_boxes_partition_by_source() -> None:
     entry = ImageBoxes(boxes=[Box(0, 0, 1, 1, src="yunet"), Box(0, 0, 1, 1, src=MANUAL)])
     assert len(entry.detected) == 1
     assert len(entry.manual) == 1
+
+# --------------------------------------------------------------------------
+# concurrent review marks
+# --------------------------------------------------------------------------
+
+
+def test_marking_several_reviewed_at_once_keeps_all_of_them(tmp_path: Path) -> None:
+    """Reported: mark a few reviewed and the screen 500s.
+
+    The review screen sends one PUT per image and FastAPI runs them in
+    parallel. Read-modify-write was unlocked, so two marks both loaded the
+    file, both changed their own copy, and the second save wrote the first
+    one's change away. On Windows the shared `.json.tmp` name also made the
+    rename fail outright: PermissionError, WinError 5.
+    """
+    import threading
+
+    names = [f"pose_{index:03d}.jpg" for index in range(24)]
+    barrier = threading.Barrier(len(names))
+    failures: list[BaseException] = []
+
+    def mark(name: str) -> None:
+        try:
+            barrier.wait(timeout=10)  # everyone writes at the same moment
+            BoxStore.update(
+                tmp_path,
+                lambda store: store.set_boxes(name, [Box(1, 2, 3, 4, MANUAL)], reviewed=True),
+            )
+        except BaseException as exc:  # noqa: BLE001 - reported, not swallowed
+            failures.append(exc)
+
+    threads = [threading.Thread(target=mark, args=(name,)) for name in names]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+
+    assert not failures, failures
+
+    saved = BoxStore.load(tmp_path)
+    missing = [name for name in names if not saved.is_reviewed(name)]
+    assert not missing, f"{len(missing)} review marks were lost: {missing[:5]}"
+
+
+def test_no_temp_files_are_left_behind(tmp_path: Path) -> None:
+    """A crashed write must not leave litter beside the dataset."""
+    store = BoxStore.load(tmp_path)
+    store.set_boxes("a.jpg", [Box(0, 0, 1, 1, MANUAL)], reviewed=True)
+    store.save()
+
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_a_locked_destination_is_retried_before_giving_up(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows refuses a rename while an indexer holds the file open.
+
+    That is transient, and giving up on it loses somebody's review pass.
+    """
+    from fluxkrea.core.dataset import boxes as boxes_module
+
+    attempts = {"n": 0}
+    real_replace = Path.replace
+
+    def flaky(self: Path, target: object) -> object:
+        attempts["n"] += 1
+        if attempts["n"] < 3:
+            raise PermissionError(5, "Access is denied")
+        return real_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", flaky)
+    monkeypatch.setattr(boxes_module, "REPLACE_BACKOFF", 0.001)
+
+    store = BoxStore.load(tmp_path)
+    store.set_boxes("a.jpg", [Box(0, 0, 1, 1, MANUAL)], reviewed=True)
+    store.save()
+
+    assert attempts["n"] == 3
+    assert BoxStore.load(tmp_path).is_reviewed("a.jpg")

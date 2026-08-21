@@ -237,6 +237,21 @@ Places where the spec left room and the code had to pick:
   expected rather than where ai-toolkit puts them, which is exactly why
   that test hid the bug - `test_plan.py` now pins our folder against
   ai-toolkit's own formula.
+- **Read-modify-write on the box file is locked, and each writer gets its
+  own temp name.** The review screen sends one PUT per image and FastAPI
+  runs them in parallel. Two marks both loaded `face_boxes.json`, both
+  changed their own copy, and the second save wrote the first away -
+  silently, in the file doc 03 says holds an afternoon of review work. The
+  shared `.json.tmp` name made it worse on Windows: two writers to one temp
+  file, and the rename failed with `PermissionError: [WinError 5]`, a 500,
+  and a review pass that stopped.
+- **A banner must not steal a screen's height.** `.content` was a block
+  with `overflow: hidden` holding screens that are `height: 100%`, so an
+  error banner added its height *above* a full-height screen and pushed the
+  bottom out of view. That is why the failed save also made the review
+  screen's whole control bar vanish - it read as two bugs and was one line
+  of CSS. `.content` is a flex column now: banners take their own height,
+  the screen takes the rest.
 - **Memory settings come from the card, not from the model.** `low_vram`
   was a per-model constant, True for Klein 9B because it "does not fit on
   16GB". Two things wrong with that. ai-toolkit's `low_vram` moves the

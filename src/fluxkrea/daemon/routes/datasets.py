@@ -284,9 +284,15 @@ def put_boxes(
     # A box arriving from a client without a source is one a human drew.
     boxes = [b if b.src not in ("", "unknown") else Box(b.x, b.y, b.w, b.h, MANUAL, b.conf) for b in boxes]
 
-    store = BoxStore.load(state.dataset_path(dataset_id))
-    store.set_boxes(item.image.name, boxes, reviewed=bool(payload.get("reviewed", True)))
-    store.save()
+    # Load, change and save under one lock. Marking several images reviewed
+    # in quick succession sends several of these at once, and FastAPI runs
+    # them in parallel - so an unlocked read-modify-write dropped one of
+    # them and, on Windows, 500'd on the rename.
+    reviewed = bool(payload.get("reviewed", True))
+    store = BoxStore.update(
+        state.dataset_path(dataset_id),
+        lambda box_store: box_store.set_boxes(item.image.name, boxes, reviewed=reviewed),
+    )
     return {"stem": stem, **store.get(item.image.name).as_dict()}
 
 

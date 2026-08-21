@@ -21,9 +21,12 @@ fleet (doc 06).
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
-from collections.abc import Iterable, Iterator
+import threading
+import time
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -67,6 +70,42 @@ class ImageBoxes:
         return cls(boxes=boxes, reviewed=bool(data.get("reviewed", False)))
 
 
+#: One lock per box file, so two writers to the same dataset queue rather
+#: than race. Keyed by resolved path: two datasets are independent.
+_LOCKS: dict[Path, threading.Lock] = {}
+_LOCKS_GUARD = threading.Lock()
+
+#: Makes each writer's temp file its own, even within one process.
+_TEMP_SEQUENCE = itertools.count()
+
+#: Windows hands out a sharing violation when an indexer or a scanner has
+#: the file open for a moment. Worth a few retries before giving up on
+#: somebody's review pass.
+REPLACE_ATTEMPTS = 5
+REPLACE_BACKOFF = 0.05
+
+
+def _lock_for(path: Path) -> threading.Lock:
+    key = path.resolve() if path.parent.exists() else path
+    with _LOCKS_GUARD:
+        lock = _LOCKS.get(key)
+        if lock is None:
+            lock = _LOCKS[key] = threading.Lock()
+        return lock
+
+
+def _replace_atomically(tmp: Path, target: Path) -> None:
+    """``tmp`` becomes ``target``, retrying a transient Windows refusal."""
+    for attempt in range(REPLACE_ATTEMPTS):
+        try:
+            tmp.replace(target)
+            return
+        except PermissionError:
+            if attempt == REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(REPLACE_BACKOFF * (attempt + 1))
+
+
 @dataclass
 class BoxStore:
     """The whole sidecar file, keyed by image filename."""
@@ -103,10 +142,36 @@ class BoxStore:
         target = paths.boxes_file(self.root)
         target.parent.mkdir(parents=True, exist_ok=True)
         payload = {name: entry.as_dict() for name, entry in sorted(self.entries.items())}
-        tmp = target.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-        tmp.replace(target)
+
+        # A temp name of this writer's own. It used to be a fixed
+        # `.json.tmp`, so two review marks arriving together wrote the same
+        # file and one renamed it out from under the other - on Windows
+        # that is `PermissionError: [WinError 5] Access is denied`, a 500,
+        # and a review screen that stops responding.
+        tmp = target.with_name(f"{target.name}.{os.getpid()}.{next(_TEMP_SEQUENCE)}.tmp")
+        try:
+            tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+            _replace_atomically(tmp, target)
+        finally:
+            tmp.unlink(missing_ok=True)
         return target
+
+    @classmethod
+    def update(cls, root: str | os.PathLike[str], mutate: Callable[[BoxStore], Any]) -> BoxStore:
+        """Load, change and save under one lock.
+
+        Read-modify-write was not atomic: two marks arriving together both
+        loaded the file, both changed their own copy, and the second save
+        wrote the first one's change away. Silent, and this file holds
+        human review work - the thing the module docstring says losing
+        would throw away an afternoon.
+        """
+        folder = paths.expand(root)
+        with _lock_for(paths.boxes_file(folder)):
+            store = cls.load(folder)
+            mutate(store)
+            store.save()
+            return store
 
     # -- access -----------------------------------------------------------
 

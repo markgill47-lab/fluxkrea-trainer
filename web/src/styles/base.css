@@ -192,11 +192,32 @@ select.node-select:hover {
   flex: 1;
 }
 
+/* A column, so a banner takes its own height and the screen takes what is
+ * left.
+ *
+ * It used to be a plain block with `overflow: hidden`, and every screen
+ * inside it is `height: 100%`. An error banner therefore added its height
+ * *above* a full-height screen and pushed the bottom of it out of view -
+ * which is how a failed save in mask review made the whole bottom control
+ * bar disappear. The error and the missing controls read as two bugs; they
+ * were this one line. */
 .content {
   grid-area: content;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.content > .banner {
+  flex: none;
+}
+
+/* The screen itself: everything the banners did not take. */
+.content > :not(.banner) {
+  flex: 1;
+  min-height: 0;
 }
 
 /* --------------------------------------------------------------------------
