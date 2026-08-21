@@ -13,3 +13,16 @@ __pycache__/
 # OS
 Thumbs.db
 .DS_Store
+
+# Build and test artifacts
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Generated training configs and run outputs, if anyone points them here
+runs/
+output/
