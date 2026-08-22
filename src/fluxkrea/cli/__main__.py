@@ -86,6 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_config(commands, common)
     _add_node(commands, common)
     _add_prompts(commands, common)
+    _add_projects(commands, common)
     _add_dataset(commands, common)
     _add_jobs(commands, common)
     _add_train(commands, common)
@@ -99,6 +100,8 @@ def _add_train(commands: Any, common: argparse.ArgumentParser) -> None:
     train.add_argument("--model", help="model id, e.g. krea2 or klein-4b")
     train.add_argument("--dataset", help="dataset id or folder on the target node")
     train.add_argument("--name", help="a name for the run")
+    train.add_argument("--project", help="submit under this project, so it queues as theirs "
+                                         "and the room can see whose run it is")
     train.add_argument("--device", type=int, default=0, help="which GPU to pin to")
     train.add_argument("--steps", type=int, help="training steps")
     train.add_argument("--lr", type=float, help="learning rate")
@@ -108,7 +111,7 @@ def _add_train(commands: Any, common: argparse.ArgumentParser) -> None:
     train.add_argument("--batch-size", type=int, help="batch size")
     train.add_argument("--save-every", type=int, help="checkpoint interval, in steps")
     train.add_argument("--sample-every", type=int, help="sample interval, in steps")
-    train.add_argument("--prompt", action="append", default=[],
+    train.add_argument("--prompt", action="append",
                        help="sample prompt; repeatable, needs --sample-every")
     train.add_argument("--masked", action="store_true",
                        help="point the run at the dataset's masks/ folder")
@@ -121,6 +124,9 @@ def _add_serve(commands: Any, common: argparse.ArgumentParser) -> None:
     serve = commands.add_parser("serve", parents=[common], help="run the daemon")
     serve.add_argument("--host", help="bind address; a non-loopback bind requires FLUXKREA_TOKEN")
     serve.add_argument("--port", type=int, help="port to listen on")
+    serve.add_argument("--lab", action="store_true",
+                       help="serve a room off this node's LAN address with no token; "
+                            "implies --host 0.0.0.0 and needs dataset.roots set")
 
 
 def _add_config(commands: Any, common: argparse.ArgumentParser) -> None:
@@ -160,6 +166,53 @@ def _add_prompts(commands: Any, common: argparse.ArgumentParser) -> None:
 
     remove = actions.add_parser("delete", parents=[common], help="delete a saved prompt")
     remove.add_argument("name")
+
+
+def _add_projects(commands: Any, common: argparse.ArgumentParser) -> None:
+    """Projects, from a terminal.
+
+    The browser is the ordinary way in, but a teaching node gets set up
+    the day before by somebody with a shell on it: eight projects, one per
+    bench, each pointed at a folder. That is a loop in a script, not
+    sixteen clicks, and without these commands it would have to be curl.
+    """
+    projects = commands.add_parser("projects", help="named groups of datasets")
+    actions = projects.add_subparsers(dest="action", required=True)
+
+    actions.add_parser("list", parents=[common], help="every project on the node")
+
+    show = actions.add_parser("show", parents=[common],
+                              help="one project: its datasets, config and queue")
+    show.add_argument("project", help="project id")
+
+    new = actions.add_parser("new", parents=[common], help="create a project")
+    new.add_argument("name", help="display name; the id is derived from it")
+    # `default=None`, not `default=[]`. argparse appends into the default
+    # *object*, so a literal list is shared by every parse in the process -
+    # one `fk` invocation never notices, an embedded or test caller sees
+    # arguments from the last command turn up in this one.
+    new.add_argument("--dataset", action="append", metavar="ID",
+                     help="put a dataset in it; repeatable")
+
+    rename = actions.add_parser("rename", parents=[common],
+                                help="change the display name; the id does not move")
+    rename.add_argument("project", help="project id")
+    rename.add_argument("name", help="the new display name")
+
+    remove = actions.add_parser("rm", parents=[common],
+                                help="forget a project; its datasets stay registered")
+    remove.add_argument("project", help="project id")
+    remove.add_argument("--force", action="store_true",
+                        help="do not ask, even when the project holds datasets")
+
+    add = actions.add_parser("add", parents=[common], help="put a dataset in a project")
+    add.add_argument("project", help="project id")
+    add.add_argument("dataset", nargs="+", help="dataset id; several may be given")
+
+    drop = actions.add_parser("drop", parents=[common],
+                              help="take a dataset out; it stays registered on the node")
+    drop.add_argument("project", help="project id")
+    drop.add_argument("dataset", nargs="+", help="dataset id; several may be given")
 
 
 def _add_node(commands: Any, common: argparse.ArgumentParser) -> None:
@@ -244,12 +297,12 @@ def _add_dataset(commands: Any, common: argparse.ArgumentParser) -> None:
     review = with_target("review", "review progress, and the images that need attention")
     review.add_argument("--mark-all-reviewed", action="store_true",
                         help="accept every detection as-is; only after looking at the previews")
-    review.add_argument("--mark", action="append", default=[],
+    review.add_argument("--mark", action="append",
                         help="mark one image reviewed, by filename")
 
     boxes_cmd = with_target("boxes", "inspect or edit the face boxes for one image")
     boxes_cmd.add_argument("image", help="image basename, e.g. punch_014")
-    boxes_cmd.add_argument("--add", action="append", default=[], metavar="X,Y,W,H",
+    boxes_cmd.add_argument("--add", action="append", metavar="X,Y,W,H",
                            help="add a manual box")
     boxes_cmd.add_argument("--clear", action="store_true", help="remove every box for this image")
     boxes_cmd.add_argument("--reviewed", action="store_true", help="mark the image reviewed")
@@ -293,7 +346,9 @@ def _add_dataset(commands: Any, common: argparse.ArgumentParser) -> None:
 def _add_jobs(commands: Any, common: argparse.ArgumentParser) -> None:
     jobs = commands.add_parser("jobs", help="training jobs")
     actions = jobs.add_subparsers(dest="action", required=True)
-    actions.add_parser("list", parents=[common], help="the queue and its history")
+    listing = actions.add_parser("list", parents=[common], help="the queue and its history")
+    listing.add_argument("--project", help="only this project's runs; the waiting order "
+                                           "below them is still everybody's")
 
     watch = actions.add_parser("watch", parents=[common], help="tail a job's event stream")
     watch.add_argument("job", help="job id")
@@ -349,6 +404,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     handlers = {
         "node": _run_node,
         "prompts": _run_prompts,
+        "projects": _run_projects,
         "dataset": _run_dataset,
         "jobs": _run_jobs,
         "train": _run_train,
@@ -494,7 +550,13 @@ def _run_serve(args: argparse.Namespace, config: Config, console: Console) -> in
     from ..daemon.app import serve
     from ..daemon.security import Denied
 
-    if args.host:
+    if args.lab:
+        # A flag rather than only a config setting, because the lab node is
+        # usually started by hand on the day and the person doing it should
+        # not have to edit a file to hold a class.
+        config.daemon.lab_mode = True
+        config.daemon.host = args.host or "0.0.0.0"  # noqa: S104 - the point of the flag
+    elif args.host:
         config.daemon.host = args.host
     if args.port:
         config.daemon.port = args.port
@@ -616,6 +678,161 @@ def _run_prompts(
 def _preview(text: str, width: int = 64) -> str:
     flat = " ".join(text.split())
     return flat if len(flat) <= width else flat[: width - 3] + "..."
+
+
+def _queue_position(job: dict[str, Any]) -> str:
+    """Progress for a running job; how many are ahead of a waiting one."""
+    if job["status"] == "queued":
+        position = job.get("position", -1)
+        if position == 0:
+            return "next up"
+        if position > 0:
+            return f"{position} ahead"
+        return "waiting"
+    return f"{job['progress']['step']}/{job['progress']['total']}"
+
+
+def _run_projects(
+    args: argparse.Namespace, config: Config, console: Console, client: Client
+) -> int:
+    """Projects on whichever node the client points at."""
+    if args.action == "list":
+        payload = client.get("/projects")
+        if args.json:
+            emit_json(payload)
+            return OK
+        rows = [
+            (
+                project["id"],
+                project["name"],
+                str(len(project["datasets"])),
+                # Loud, because a project listing a folder the node has
+                # forgotten is a row that 404s the moment anybody opens it.
+                f"{len(project['missing'])} missing" if project["missing"] else "",
+            )
+            for project in payload["projects"]
+        ]
+        console.write(
+            table(rows, headers=("id", "name", "datasets", ""))
+            if rows
+            else "no projects yet. Make one with:  fk projects new <name>"
+        )
+        return OK
+
+    if args.action == "show":
+        project = client.get(f"/projects/{args.project}")
+        if args.json:
+            emit_json(project)
+            return OK
+
+        console.write(f"{project['name']}  ({project['id']})")
+        console.write("")
+        rows = [(d["id"], d["path"], "" if d["exists"] else "folder missing")
+                for d in project["dataset_details"]]
+        console.write(table(rows, headers=("dataset", "path", "")) if rows else "  no datasets")
+        for missing in project["missing"]:
+            console.write(f"  ! {missing} is in this project but not registered on this node")
+
+        if project["config"]:
+            console.write("")
+            console.write("shared training config:")
+            for key in sorted(project["config"]):
+                console.write(f"  {key} = {project['config'][key]!r}")
+
+        jobs = client.get(f"/projects/{args.project}/jobs")["jobs"]
+        if jobs:
+            console.write("")
+            console.write("runs:")
+            console.write(
+                table(
+                    [(j["id"], j["status"], j["spec"]["model"], _queue_position(j)) for j in jobs],
+                    headers=("id", "status", "model", "progress"),
+                )
+            )
+        return OK
+
+    if args.action == "new":
+        project = client.post("/projects", json_body={"name": args.name})
+        for dataset_id in args.dataset or []:
+            project = client.post(
+                f"/projects/{project['id']}/datasets", json_body={"dataset": dataset_id}
+            )
+        if args.json:
+            emit_json(project)
+            return OK
+        console.write(f"created {project['id']}  ({project['name']})")
+        if args.dataset or []:
+            console.write(f"  {len(project['datasets'])} dataset(s) in it")
+        console.write(f"  submit runs under it with:  fk train --project {project['id']} ...")
+        return OK
+
+    if args.action == "rename":
+        project = client.patch(f"/projects/{args.project}", json_body={"name": args.name})
+        if args.json:
+            emit_json(project)
+            return OK
+        console.write(f"{project['id']} is now called {project['name']!r}")
+        # Worth saying every time: the id is what queued jobs and open
+        # browsers hold, and somebody renaming will reasonably expect it to
+        # follow. It does not, on purpose.
+        console.write("  the id did not change, so queued runs still point at it")
+        return OK
+
+    if args.action == "rm":
+        project = client.get(f"/projects/{args.project}")
+        if project["datasets"] and not args.force and not _confirm(
+            console,
+            f"{project['name']} holds {len(project['datasets'])} dataset(s). "
+            "Forgetting the project leaves every one of them registered and "
+            "every file where it is. Continue?",
+        ):
+            console.write("left alone")
+            return OK
+        payload = client.delete(f"/projects/{args.project}")
+        if args.json:
+            emit_json(payload)
+            return OK
+        console.write(f"forgot {args.project}. Its datasets are still registered on this node.")
+        return OK
+
+    if args.action == "add":
+        project = None
+        for dataset_id in args.dataset:
+            project = client.post(
+                f"/projects/{args.project}/datasets", json_body={"dataset": dataset_id}
+            )
+        if args.json:
+            emit_json(project)
+            return OK
+        console.write(f"{args.project} now holds: {', '.join(project['datasets']) or 'nothing'}")
+        return OK
+
+    project = None
+    for dataset_id in args.dataset:
+        project = client.delete(f"/projects/{args.project}/datasets/{dataset_id}")
+    if args.json:
+        emit_json(project)
+        return OK
+    console.write(f"{args.project} now holds: {', '.join(project['datasets']) or 'nothing'}")
+    console.write("  the datasets themselves are still registered on this node")
+    return OK
+
+
+def _confirm(console: Console, question: str) -> bool:
+    """Ask before something that cannot be undone from here.
+
+    Answers yes without asking when stdin is not a terminal, so a setup
+    script does not hang forever on a prompt nobody is there to answer -
+    that is what ``--force`` documents, and a non-interactive caller has
+    already made its choice by being non-interactive.
+    """
+    if not sys.stdin.isatty():
+        return True
+    console.write(question)
+    try:
+        return input("  [y/N] ").strip().lower() in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        return False
 
 
 def _run_node(args: argparse.Namespace, config: Config, console: Console, client: Client) -> int:
@@ -957,7 +1174,7 @@ def _run_review(args: argparse.Namespace, console: Console, client: Client, data
         wanted = (
             [i["stem"] for i in items]
             if args.mark_all_reviewed
-            else [Path(name).stem for name in args.mark]
+            else [Path(name).stem for name in args.mark or []]
         )
         for stem in wanted:
             current = client.get(f"/datasets/{dataset_id}/items/{stem}/boxes")
@@ -989,7 +1206,7 @@ def _run_boxes(args: argparse.Namespace, console: Console, client: Client, datas
 
     if args.clear or args.add or args.reviewed:
         boxes = [] if args.clear else list(current["boxes"])
-        boxes.extend(_parse_box(raw) for raw in args.add)
+        boxes.extend(_parse_box(raw) for raw in args.add or [])
         current = client.put(
             path,
             json_body={"boxes": boxes, "reviewed": args.reviewed or current.get("reviewed", False)},
@@ -1082,7 +1299,7 @@ def _run_where(args: argparse.Namespace, console: Console) -> int:
 
 def _run_jobs(args: argparse.Namespace, config: Config, console: Console, client: Client) -> int:
     if args.action == "list":
-        payload = client.get("/jobs")
+        payload = client.get("/jobs", params={"project": args.project})
         if args.json:
             emit_json(payload)
             return OK
@@ -1090,18 +1307,32 @@ def _run_jobs(args: argparse.Namespace, config: Config, console: Console, client
             (
                 job["id"],
                 job["status"],
+                job.get("project") or "-",
                 str(job["device"]),
                 job["spec"]["model"],
                 job["spec"]["dataset"],
-                f"{job['progress']['step']}/{job['progress']['total']}",
+                _queue_position(job),
             )
             for job in payload["jobs"]
         ]
         console.write(
-            table(rows, headers=("id", "status", "gpu", "model", "dataset", "progress"))
+            table(
+                rows,
+                headers=("id", "status", "project", "gpu", "model", "dataset", "progress"),
+            )
             if rows
             else "no jobs"
         )
+        # The waiting order, whoever asked. Filtering by project filters the
+        # rows above and deliberately not this: a student needs to see the
+        # runs in front of theirs, and those belong to other people.
+        waiting = payload.get("queue") or []
+        if len(waiting) > 1:
+            console.write("")
+            console.write("waiting, in the order they will start:")
+            for position, entry in enumerate(waiting, start=1):
+                owner = entry.get("project") or "unclaimed"
+                console.write(f"  {position}. {owner} - {entry.get('name') or entry['id']}")
         if not payload["runner"]:
             console.write("\n! no training backend is registered on this node yet")
         return OK
@@ -1173,6 +1404,7 @@ def _run_spec(args: argparse.Namespace, client: Client) -> dict[str, Any]:
         ("model", args.model),
         ("dataset", args.dataset),
         ("name", args.name),
+        ("project", args.project),
         ("device", args.device),
         ("steps", args.steps),
         ("learning_rate", args.lr),
@@ -1189,7 +1421,7 @@ def _run_spec(args: argparse.Namespace, client: Client) -> dict[str, Any]:
 
     if args.prompt:
         extra = dict(spec.get("extra") or {})
-        extra["sample_prompts"] = list(args.prompt)
+        extra["sample_prompts"] = list(args.prompt or [])
         spec["extra"] = extra
 
     if not spec.get("model") or not spec.get("dataset"):

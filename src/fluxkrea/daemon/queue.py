@@ -77,6 +77,11 @@ class Job:
         return self.spec.device
 
     @property
+    def project(self) -> str:
+        """Who is waiting on this. Empty for a run nobody claimed."""
+        return self.spec.project
+
+    @property
     def loss(self) -> list[tuple[int, float]]:
         """Raw points, for callers that want the series and nothing else."""
         return list(zip(self.series.steps, self.series.values, strict=False))
@@ -134,6 +139,7 @@ class Job:
             "finished": self.finished,
             "error": self.error,
             "device": self.device,
+            "project": self.project,
             "config_path": self.config_path,
             "progress": self.progress,
             "events": self._next,
@@ -178,6 +184,43 @@ class Job:
 
 #: What actually runs a job. Supplied by the backend layer in P4.
 JobRunner = Callable[[Job, Emitter, threading.Event], Any]
+
+#: Prefix for the synthetic fair-share lane an unclaimed job gets. A space
+#: cannot appear in a project id, so it can never collide with a real one.
+UNCLAIMED = "job "
+
+
+def fair_order(jobs: list[Job]) -> list[Job]:
+    """Queued jobs, interleaved so no one project can monopolise the node.
+
+    Plain FIFO is correct for one operator and wrong for a room. A student
+    who queues five variations at nine in the morning would hold the only
+    GPU until lunch, and every other student's first run - the one they
+    need to see something work at all - sits behind all five.
+
+    So each project's Nth submission goes before any project's N+1th, and
+    within a round it is still first-come-first-served. Nobody is starved,
+    the ordering is stable, and a single-project node behaves exactly as
+    FIFO did, which is what keeps the CLI and the fleet unchanged.
+
+    Projects are not authenticated - they are a name a browser chose - so
+    this is fairness between good-faith parties, not an anti-abuse control.
+    Nothing here stops somebody typing a new project name per run, and on a
+    lab network that is a conversation rather than a security boundary.
+    """
+    seen: dict[str, int] = {}
+    ranked: list[tuple[int, float, Job]] = []
+    for job in sorted(jobs, key=lambda j: j.created):
+        # Unclaimed runs each queue as their own party of one rather than
+        # sharing a lane: they come from the CLI and from the fleet, and
+        # bundling them under "" would make one operator's scripted batch
+        # the slow lane for every other operator's.
+        key = job.project or f"{UNCLAIMED}{job.id}"
+        rank = seen.get(key, 0)
+        seen[key] = rank + 1
+        ranked.append((rank, job.created, job))
+    ranked.sort(key=lambda entry: (entry[0], entry[1]))
+    return [job for _, _, job in ranked]
 
 
 class JobQueue:
@@ -257,6 +300,23 @@ class JobQueue:
     def depth(self) -> int:
         return len(self.list(status=QUEUED))
 
+    def waiting(self) -> list[Job]:
+        """Queued jobs in the order they will actually start."""
+        return fair_order(self.list(status=QUEUED))
+
+    def position(self, job_id: str) -> int:
+        """How many runs are ahead of this one, or -1 if it is not waiting.
+
+        The number a student is actually asking for. Reported rather than
+        left to the client to count, because the client sees a filtered
+        list - its own project's jobs - and counting that would say "you
+        are next" while four other people are ahead.
+        """
+        for index, job in enumerate(self.waiting()):
+            if job.id == job_id:
+                return index
+        return -1
+
     def running(self, device: int | None = None) -> list[Job]:
         jobs = self.list(status=RUNNING)
         return [j for j in jobs if device is None or j.device == device] if jobs else []
@@ -288,7 +348,7 @@ class JobQueue:
             return
         with self._lock:
             busy = {job.device for job in self.list(status=RUNNING)}
-            for job in sorted(self.list(status=QUEUED), key=lambda j: j.created):
+            for job in self.waiting():
                 if job.device in busy or job.device >= self.devices:
                     continue
                 busy.add(job.device)

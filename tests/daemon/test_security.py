@@ -10,7 +10,14 @@ from starlette.testclient import TestClient
 
 from fluxkrea.core.config import Config, load
 from fluxkrea.daemon.app import API, create_app
-from fluxkrea.daemon.security import Denied, check_bind, check_path, check_token, is_loopback
+from fluxkrea.daemon.security import (
+    Denied,
+    check_bind,
+    check_path,
+    check_token,
+    is_loopback,
+    lan_addresses,
+)
 from fluxkrea.daemon.state import State
 
 
@@ -43,6 +50,57 @@ def test_binding_wider_with_a_token_is_allowed(monkeypatch: pytest.MonkeyPatch) 
     config = load()
     config.daemon.host = "0.0.0.0"  # noqa: S104 - the case under test
     check_bind(config)
+
+
+# --------------------------------------------------------------------------
+# lab mode
+# --------------------------------------------------------------------------
+
+
+def test_lab_mode_permits_an_open_bind_with_no_token(tmp_path: Path) -> None:
+    """A classroom on one LAN node. The trade is stated, not stumbled into."""
+    config = load()
+    config.daemon.host = "0.0.0.0"  # noqa: S104 - the case under test
+    config.daemon.lab_mode = True
+    config.dataset.roots = [tmp_path]
+    check_bind(config)
+
+
+def test_lab_mode_without_roots_is_refused(tmp_path: Path) -> None:
+    """Lab mode drops the token, so the roots are the only remaining fence."""
+    config = load()
+    config.daemon.host = "0.0.0.0"  # noqa: S104 - the case under test
+    config.daemon.lab_mode = True
+    config.dataset.roots = []
+    with pytest.raises(Denied, match="dataset.roots"):
+        check_bind(config)
+
+
+def test_lab_mode_is_off_by_default() -> None:
+    assert load().daemon.lab_mode is False
+
+
+def test_lab_mode_does_not_relax_the_path_check(tmp_path: Path) -> None:
+    """The roots still scope every path, token or no token."""
+    config = load()
+    config.daemon.lab_mode = True
+    config.dataset.roots = [tmp_path]
+    with pytest.raises(Denied, match="outside the configured dataset roots"):
+        check_path(config, tmp_path.parent / "somewhere-else")
+
+
+def test_lab_mode_is_not_writable_over_the_api(api: httpx.Client) -> None:
+    """Turning it on is a decision made with a shell on the node."""
+    response = api.put("/config", json={"set": {"daemon.lab_mode": True}})
+    assert response.status_code == 403
+    assert "config.toml" in response.json()["error"]
+
+
+def test_a_lab_node_reports_its_own_urls() -> None:
+    """Printed at startup, because "log in here" is the whole instruction."""
+    urls = lan_addresses(8471)
+    assert all(url.startswith("http://") and url.endswith(":8471") for url in urls)
+    assert not any(url.startswith("http://127.") for url in urls)
 
 
 # --------------------------------------------------------------------------

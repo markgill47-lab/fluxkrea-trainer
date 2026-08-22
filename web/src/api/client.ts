@@ -12,6 +12,7 @@
  */
 
 import type {
+  ArtifactsResponse,
   BoxesResponse,
   BrowseResponse,
   CaptionerInfo,
@@ -22,9 +23,12 @@ import type {
   ItemsResponse,
   Job,
   LossPayload,
+  JobsResponse,
   ModelInfo,
   NodeInfo,
   OpenedFolder,
+  Project,
+  PublishResult,
   ReviewProgress,
   RunFolders,
   RunPlan,
@@ -136,6 +140,50 @@ export const api = {
       o,
     ),
 
+  // -- projects ---------------------------------------------------------
+
+  /**
+   * Projects are addressed by id and there is no "current" one on the
+   * node: several students share one daemon, so the selection lives in
+   * each browser. A server-side current project would mean the last person
+   * to click changed everybody's screen.
+   */
+  projects: (o?: RequestOptions) =>
+    request<{ projects: Project[]; count: number }>("GET", "/projects", undefined, o),
+
+  project: (id: string, o?: RequestOptions) =>
+    request<Project>("GET", `/projects/${encodeURIComponent(id)}`, undefined, o),
+
+  createProject: (name: string, o?: RequestOptions) =>
+    request<Project>("POST", "/projects", { name }, o),
+
+  renameProject: (id: string, name: string, o?: RequestOptions) =>
+    request<Project>("PATCH", `/projects/${encodeURIComponent(id)}`, { name }, o),
+
+  /** Replace the shared training config. Whole-form, never a merge. */
+  saveProjectConfig: (id: string, config: Record<string, unknown>, o?: RequestOptions) =>
+    request<Project>("PATCH", `/projects/${encodeURIComponent(id)}`, { config }, o),
+
+  /** Forget a project. Every dataset in it stays registered on the node. */
+  deleteProject: (id: string, o?: RequestOptions) =>
+    request<{ id: string; deleted: boolean }>(
+      "DELETE",
+      `/projects/${encodeURIComponent(id)}`,
+      undefined,
+      o,
+    ),
+
+  addProjectDataset: (id: string, dataset: string, o?: RequestOptions) =>
+    request<Project>("POST", `/projects/${encodeURIComponent(id)}/datasets`, { dataset }, o),
+
+  removeProjectDataset: (id: string, dataset: string, o?: RequestOptions) =>
+    request<Project>(
+      "DELETE",
+      `/projects/${encodeURIComponent(id)}/datasets/${encodeURIComponent(dataset)}`,
+      undefined,
+      o,
+    ),
+
   datasets: (o?: RequestOptions) =>
     request<{ datasets: Dataset[] }>("GET", "/datasets", undefined, o),
 
@@ -236,13 +284,16 @@ export const api = {
 
   // -- training ---------------------------------------------------------
 
-  jobs: (o?: RequestOptions) =>
-    request<{ jobs: Job[]; depth: number; devices: number; runner: boolean }>(
-      "GET",
-      "/jobs",
-      undefined,
-      o,
-    ),
+  /**
+   * The job list. `project` filters `jobs`, never `queue` — a student
+   * needs to see the runs in front of theirs, and those belong to other
+   * people.
+   */
+  jobs: (project?: string, o?: RequestOptions) =>
+    request<JobsResponse>("GET", "/jobs", undefined, {
+      ...o,
+      params: { project },
+    }),
 
   /** Steps and duration for a run that has not been submitted yet. */
   planRun: (
@@ -275,6 +326,20 @@ export const api = {
 
   samples: (id: string, o?: RequestOptions) =>
     request<{ id: string; samples: SampleImage[] }>("GET", `/jobs/${id}/samples`, undefined, o),
+
+  /** The LoRAs a run wrote, final first, and whether they can be published. */
+  artifacts: (id: string, o?: RequestOptions) =>
+    request<ArtifactsResponse>("GET", `/jobs/${id}/artifacts`, undefined, o),
+
+  /**
+   * Copy a finished LoRA into ComfyUI's `models/loras/<family>` on the
+   * node. The family comes off the model record, so nobody chooses it.
+   */
+  publishArtifact: (
+    id: string,
+    options: { artifact?: string; name?: string; overwrite?: boolean } = {},
+    o?: RequestOptions,
+  ) => request<PublishResult>("POST", `/jobs/${id}/publish`, options, o),
 
   // -- settings ---------------------------------------------------------
 
@@ -372,6 +437,16 @@ export const assets = {
 
   preview: (dataset: string, stem: string) =>
     `${base}${API}/datasets/${dataset}/items/${stem}/preview`,
+
+  /**
+   * A trained LoRA, as a URL rather than a fetch.
+   *
+   * The browser downloading it directly is the point: these are 90MB and
+   * up, and pulling one through `fetch` into a blob would hold the whole
+   * file in memory and lose the progress bar the browser gives for free.
+   */
+  artifact: (job: string, name: string) =>
+    `${base}${API}/jobs/${job}/artifacts/${encodeURIComponent(name)}`,
 };
 
 /** SSE URL for a task's event stream, resumable by index. */

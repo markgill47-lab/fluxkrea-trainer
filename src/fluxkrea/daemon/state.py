@@ -26,6 +26,7 @@ from ..core.captioners.prompts import PromptLibrary
 from ..core.config import Config, load
 from ..core.dataset import scan
 from ..core.dataset.item import DatasetItem
+from .projects import Project, ProjectError, ProjectStore
 from .queue import JobQueue, JobRunner
 from .registry import Dataset, Registry
 from .security import Denied, check_path
@@ -38,6 +39,9 @@ class State:
     #: Saved caption prompts. One per node, beside the config file.
     prompts: PromptLibrary = field(default_factory=PromptLibrary)
     registry: Registry = field(default_factory=Registry)
+    #: Named groups of datasets sharing a training config. A view over the
+    #: registry, never a replacement for it - see ``projects.py``.
+    projects: ProjectStore = field(default_factory=ProjectStore)
     tasks: TaskRunner = field(default=None)  # type: ignore[assignment]
     jobs: JobQueue = field(default=None)  # type: ignore[assignment]
     started: float = field(default_factory=time.time)
@@ -79,6 +83,11 @@ class State:
             "queue_depth": self.jobs.depth(),
             "tasks_active": self.tasks.active(),
             "stale": self.stale(),
+            # A student's browser needs this before it can decide whether
+            # its stored project id is still real, and health is the one
+            # call it already makes on a timer.
+            "projects": len(self.projects),
+            "lab_mode": bool(self.config.daemon.lab_mode),
         }
 
     def stale(self) -> bool:
@@ -177,6 +186,29 @@ class State:
                 status=410,
             )
         return dataset.path
+
+    # -- projects ----------------------------------------------------------
+
+    def project(self, project_id: str) -> Project:
+        found = self.projects.get(project_id)
+        if found is None:
+            raise Denied(f"no project {project_id!r}", status=404)
+        return found
+
+    def project_datasets(self, project_id: str) -> list[Dataset]:
+        """The datasets in a project, skipping any the node has forgotten.
+
+        Skipped rather than raised on: a folder deregistered from under a
+        project is a normal thing to happen between two browsers, and it
+        must not make the project unopenable.
+        """
+        project = self.project(project_id)
+        found = []
+        for dataset_id in project.datasets:
+            entry = self.registry.get(dataset_id)
+            if entry is not None:
+                found.append(entry)
+        return found
 
     def register(self, path: str, name: str | None = None, *, create: bool = False) -> Dataset:
         """Register a folder, after checking it is inside the allowed roots.

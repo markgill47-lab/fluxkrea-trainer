@@ -25,13 +25,31 @@ import type {
   CaptionerInfo,
   CaptionerProbe,
   ConfigPayload,
+  Project,
   SavedPrompt,
   SecretInfo,
 } from "~/api/types";
 import { Field } from "./Field";
 import { PromptField } from "./PromptField";
 
-export function SettingsScreen({ onError }: { onError(message: string | null): void }) {
+interface Props {
+  /** The open project. Renamed, closed or replaced from this screen. */
+  project: Project;
+  projects: Project[];
+  onError(message: string | null): void;
+  onProjectsChanged(): Promise<unknown>;
+  onOpenProject(id: string): void;
+  onCloseProject(): void;
+}
+
+export function SettingsScreen({
+  project,
+  projects,
+  onError,
+  onProjectsChanged,
+  onOpenProject,
+  onCloseProject,
+}: Props) {
   const [config, setConfig] = useState<ConfigPayload | null>(null);
   const [captioners, setCaptioners] = useState<CaptionerInfo[]>([]);
   const [secrets, setSecrets] = useState<SecretInfo[]>([]);
@@ -143,6 +161,16 @@ export function SettingsScreen({ onError }: { onError(message: string | null): v
       </header>
 
       <div class="settings__body">
+        {/* -- project --------------------------------------------------- */}
+        <ProjectPanel
+          project={project}
+          projects={projects}
+          onError={onError}
+          onChanged={onProjectsChanged}
+          onOpen={onOpenProject}
+          onClose={onCloseProject}
+        />
+
         {/* -- captioning ------------------------------------------------ */}
         <section class="panel">
           <h2 class="panel__title">Captioning</h2>
@@ -377,4 +405,198 @@ function describeLocked(key: string, config: ConfigPayload): string {
   const value = name ? values?.[name] : undefined;
   if (Array.isArray(value)) return value.length ? value.join(", ") : "(none)";
   return value === undefined || value === "" ? "(unset)" : String(value);
+}
+
+/**
+ * The project panel — rename, start another, close this one.
+ *
+ * First in the settings body because it scopes every other panel: which
+ * datasets are listed, which runs appear in the queue as yours. Renaming
+ * changes only the display name; the id every open browser and every
+ * queued job holds does not move.
+ *
+ * There is deliberately no delete button here. "Close" is the reversible
+ * action a student wants, deleting is not, and on a shared node the two
+ * are one misread label apart.
+ */
+function ProjectPanel({
+  project,
+  projects,
+  onError,
+  onChanged,
+  onOpen,
+  onClose,
+}: {
+  project: Project;
+  projects: Project[];
+  onError(message: string | null): void;
+  onChanged(): Promise<unknown>;
+  onOpen(id: string): void;
+  onClose(): void;
+}) {
+  const [name, setName] = useState(project.name);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+
+  // Follow the project when it changes underneath — switching projects in
+  // the top bar must not leave the previous one's name in this field.
+  useEffect(() => {
+    setName(project.name);
+    setSaved(null);
+  }, [project.id, project.name]);
+
+  const report = useCallback(
+    (error: unknown) => {
+      if (!isAbort(error)) onError(error instanceof ApiError ? error.message : String(error));
+    },
+    [onError],
+  );
+
+  const rename = useCallback(async () => {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === project.name) return;
+    setBusy(true);
+    try {
+      await api.renameProject(project.id, trimmed);
+      await onChanged();
+      setSaved("saved");
+      onError(null);
+    } catch (error) {
+      report(error);
+      setName(project.name);
+    } finally {
+      setBusy(false);
+    }
+  }, [name, project.id, project.name, onChanged, onError, report]);
+
+  const create = useCallback(async () => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    try {
+      const created = await api.createProject(trimmed);
+      await onChanged();
+      setNewName("");
+      setCreating(false);
+      onOpen(created.id);
+      onError(null);
+    } catch (error) {
+      report(error);
+    } finally {
+      setBusy(false);
+    }
+  }, [newName, onChanged, onOpen, onError, report]);
+
+  return (
+    <section class="panel">
+      <h2 class="panel__title">Project</h2>
+      <p class="panel__note">
+        A project groups dataset folders under one training configuration.
+        Its name is what the shared training queue shows beside your runs.
+      </p>
+
+      <div class="field">
+        <label class="field__label" for="project-name">
+          Name
+        </label>
+        <div class="field__control">
+          <input
+            id="project-name"
+            class="input"
+            value={name}
+            maxLength={64}
+            disabled={busy}
+            onInput={(event) => {
+              setName((event.target as HTMLInputElement).value);
+              setSaved(null);
+            }}
+            onBlur={() => void rename()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") (event.target as HTMLInputElement).blur();
+              if (event.key === "Escape") setName(project.name);
+            }}
+          />
+          {saved && <span class="field__state">{saved}</span>}
+        </div>
+        <div class="field__hint">
+          Renaming changes the label only. The id <code class="mono">{project.id}</code>{" "}
+          stays, so runs already queued keep pointing at this project.
+        </div>
+      </div>
+
+      <div class="field field--static">
+        <label class="field__label">Datasets</label>
+        <div class="field__control">
+          <span class="tabular">
+            {project.datasets.length} in this project
+            {projects.length > 1 ? ` · ${projects.length} projects on this node` : ""}
+          </span>
+        </div>
+        <div class="field__hint">
+          Add and remove them from <strong>Datasets…</strong> in the top bar.
+          {project.missing.length > 0 && (
+            <>
+              {" "}
+              <span class="chip chip--warn">
+                {project.missing.length} no longer registered on this node
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {creating ? (
+        <form
+          class="field"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void create();
+          }}
+        >
+          <label class="field__label" for="new-project">
+            New project
+          </label>
+          <div class="field__control">
+            <input
+              id="new-project"
+              class="input"
+              placeholder="Project name"
+              value={newName}
+              maxLength={64}
+              autoFocus
+              onInput={(event) => setNewName((event.target as HTMLInputElement).value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setCreating(false);
+              }}
+            />
+            <button class="btn btn--accent" type="submit" disabled={!newName.trim() || busy}>
+              Create
+            </button>
+            <button class="btn btn--ghost" type="button" onClick={() => setCreating(false)}>
+              Cancel
+            </button>
+          </div>
+          <div class="field__hint">Creating a project also opens it.</div>
+        </form>
+      ) : (
+        <div class="field field--static">
+          <label class="field__label" />
+          <div class="field__control">
+            <button class="btn" onClick={() => setCreating(true)} disabled={busy}>
+              New project
+            </button>
+            <button class="btn btn--ghost" onClick={onClose} disabled={busy}>
+              Close project
+            </button>
+          </div>
+          <div class="field__hint">
+            Closing returns to the project list. Nothing is deleted — every
+            dataset stays registered and every file stays where it is.
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }

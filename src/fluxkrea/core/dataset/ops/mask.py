@@ -27,14 +27,14 @@ import os
 import threading
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter
 
 from ... import paths
-from ...detect.base import MANUAL, Box, Detector, DetectorError, get_detector
+from ...detect.base import ELLIPSE, MANUAL, RECT, SHAPES, Box, Detector, DetectorError, get_detector
 from ...events import Emitter, Log, Progress, is_cancelled, no_op, safe
 from ...imaging import ImageError, Size, load_oriented, save_image, save_mask
 from ..boxes import BoxStore, ReviewProgress
@@ -142,6 +142,7 @@ def detect_faces(
     nms: float = 0.3,
     workers: int = 4,
     only_missing: bool = False,
+    shape: str = ELLIPSE,
     extensions: Iterable[str] | None = None,
     store: BoxStore | None = None,
     emit: Emitter = no_op,
@@ -156,10 +157,17 @@ def detect_faces(
 
     ``only_missing`` skips images that already have boxes - the cheap way
     to extend a pass over newly added images.
+
+    *shape* is what the boxes are filled as, not what the detector returns:
+    a detector reports a bounding box and has no opinion about the region.
+    Ellipse is the default because a face is one, and the four corners a
+    rectangle adds are background the run would otherwise be told to learn
+    nothing from.
     """
     emit = safe(emit)
     folder = paths.expand(root)
     engine = get_detector(detector, confidence=confidence, nms=nms) if isinstance(detector, str) else detector
+    fill = shape if shape in SHAPES else RECT
 
     selected = list(items) if items is not None else scan(folder, extensions=extensions, cancel=cancel)
     boxes = store if store is not None else BoxStore.load(folder)
@@ -182,7 +190,7 @@ def detect_faces(
         if is_cancelled(cancel):
             return
         try:
-            found = engine.detect(_as_bgr(item.image))
+            found = [replace(box, shape=fill) for box in engine.detect(_as_bgr(item.image))]
         except (DetectorError, ImageError, OSError) as exc:
             with lock:
                 result.failed.append((item.stem, str(exc)))
@@ -249,13 +257,36 @@ def render_mask(
 
     regions = list(boxes)
     array = np.full((height, width), TRAINED, dtype=np.uint8)
+    ellipses: list[Box] = []
     for box in regions:
-        grown = box.expanded(expand, expand_up).clamped(width, height)
-        if grown.area <= 0:
+        grown = box.expanded(expand, expand_up)
+        if grown.is_ellipse:
+            # Deliberately *not* clamped. Clamping an ellipse clamps its
+            # bounding box, which moves the centre and squashes the axes -
+            # a face at the edge of the frame would be masked by a
+            # different ellipse from the one drawn in review. The drawing
+            # below clips at the canvas edge instead, which is the same
+            # ellipse with the off-frame part missing.
+            ellipses.append(grown)
             continue
-        array[grown.y : grown.bottom, grown.x : grown.right] = IGNORED
+        clipped = grown.clamped(width, height)
+        if clipped.area <= 0:
+            continue
+        array[clipped.y : clipped.bottom, clipped.x : clipped.right] = IGNORED
 
     mask = Image.fromarray(array, mode="L")
+
+    if ellipses:
+        draw = ImageDraw.Draw(mask)
+        for grown in ellipses:
+            if grown.w < 1 or grown.h < 1:
+                continue
+            # Pillow's ellipse is inclusive of both bounds, so the -1 keeps
+            # a w-pixel-wide box w pixels wide rather than w+1.
+            draw.ellipse(
+                (grown.x, grown.y, grown.right - 1, grown.bottom - 1),
+                fill=IGNORED,
+            )
 
     if feather > 0 and regions:
         # GaussianBlur is applied to the whole mask; with a hard-edged

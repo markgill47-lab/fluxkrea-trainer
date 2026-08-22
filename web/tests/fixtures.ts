@@ -10,7 +10,7 @@
 
 import { vi } from "vitest";
 import { api } from "~/api/client";
-import type { Dataset, Item, Job, ModelInfo, RunPlan } from "~/api/types";
+import type { Dataset, Item, Job, JobsResponse, ModelInfo, Project, RunPlan } from "~/api/types";
 
 export function dataset(id: string, path = `D:/data/${id}`): Dataset {
   return { id, path, name: id, exists: true };
@@ -56,6 +56,7 @@ export function job(overrides: Partial<Job> = {}): Job {
     finished: null,
     error: "",
     device: 0,
+    project: "tuesday",
     config_path: "",
     progress: { step: 10, total: 100 },
     events: 0,
@@ -64,6 +65,7 @@ export function job(overrides: Partial<Job> = {}): Job {
       dataset: "api",
       name: "a-run",
       output: "",
+      project: "tuesday",
       device: 0,
       steps: 100,
       batch_size: 1,
@@ -78,6 +80,50 @@ export function job(overrides: Partial<Job> = {}): Job {
       seed: null,
       extra: {},
     },
+    ...overrides,
+  };
+}
+
+export function project(id = "tuesday", overrides: Partial<Project> = {}): Project {
+  return {
+    id,
+    name: id,
+    datasets: [],
+    dataset_details: [],
+    missing: [],
+    config: {},
+    created: 0,
+    updated: 0,
+    ...overrides,
+  };
+}
+
+/**
+ * A `GET /jobs` body. `queue` and `running` default to matching `jobs`,
+ * because a test that says "one run is going" should not also have to
+ * remember to say so in three places for the screen to agree with itself.
+ */
+export function jobsResponse(jobs: Job[] = [], overrides: Partial<JobsResponse> = {}): JobsResponse {
+  const waiting = jobs.filter((entry) => entry.status === "queued");
+  return {
+    jobs,
+    queue: waiting.map((entry) => ({
+      id: entry.id,
+      project: entry.project,
+      name: entry.spec.name,
+      model: entry.spec.model,
+    })),
+    running: jobs
+      .filter((entry) => entry.status === "running")
+      .map((entry) => ({
+        id: entry.id,
+        project: entry.project,
+        name: entry.spec.name,
+        device: entry.device,
+      })),
+    depth: waiting.length,
+    devices: 1,
+    runner: true,
     ...overrides,
   };
 }

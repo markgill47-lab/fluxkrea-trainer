@@ -11,7 +11,26 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { describe, expect, it, vi } from "vitest";
 import type { ConfigPayload } from "~/api/types";
 import { SettingsScreen } from "~/settings/SettingsScreen";
-import { fakeApi } from "./fixtures";
+import { fakeApi, project } from "./fixtures";
+
+/**
+ * The props the shell supplies.
+ *
+ * The project panel is part of this screen now — it is the thing that
+ * scopes every other panel — so every render needs one. A helper keeps
+ * these tests about what they were already about.
+ */
+function panelProps() {
+  const open = project();
+  return {
+    project: open,
+    projects: [open],
+    onError: () => {},
+    onProjectsChanged: async () => {},
+    onOpenProject: () => {},
+    onCloseProject: () => {},
+  };
+}
 
 /**
  * Rendered, with all four of the screen's loads landed and flushed.
@@ -23,7 +42,7 @@ import { fakeApi } from "./fixtures";
  * it, but a test is fast enough to hit it every time.
  */
 async function ready() {
-  render(<SettingsScreen onError={() => {}} />);
+  render(<SettingsScreen {...panelProps()} />);
   await screen.findByLabelText("Trigger token");
   // The prompt picker is empty until the last of the four loads lands, so
   // its options are a real signal that the screen has finished rather than
@@ -147,7 +166,7 @@ describe("saving a setting", () => {
 describe("what cannot be edited", () => {
   it("lists the locked settings with their current values", async () => {
     setup();
-    render(<SettingsScreen onError={() => {}} />);
+    render(<SettingsScreen {...panelProps()} />);
 
     await waitFor(() => expect(screen.getByText("daemon.*")).toBeInTheDocument());
     expect(screen.getByText("127.0.0.1:8471")).toBeInTheDocument();
@@ -161,7 +180,7 @@ describe("probing a captioner", () => {
     const testCaptioner = vi.fn(async () => ({ ok: true, message: "ready" }));
     setup({ testCaptioner: testCaptioner as never });
 
-    render(<SettingsScreen onError={() => {}} />);
+    render(<SettingsScreen {...panelProps()} />);
     await screen.findByLabelText("Trigger token");
     expect(testCaptioner).not.toHaveBeenCalled();
   });
@@ -174,7 +193,7 @@ describe("probing a captioner", () => {
       })) as never,
     });
 
-    render(<SettingsScreen onError={() => {}} />);
+    render(<SettingsScreen {...panelProps()} />);
     fireEvent.click(await screen.findByRole("button", { name: /test connection/i }));
 
     await waitFor(() => expect(screen.getByText(/ollama serve/)).toBeInTheDocument());
@@ -186,7 +205,7 @@ describe("the prompt library", () => {
     const putConfig = vi.fn(async () => CONFIG);
     setup({ putConfig: putConfig as never });
 
-    render(<SettingsScreen onError={() => {}} />);
+    render(<SettingsScreen {...panelProps()} />);
     const picker = await screen.findByLabelText("Saved prompts");
 
     fireEvent.change(picker, { target: { value: "person" } });
@@ -200,7 +219,7 @@ describe("the prompt library", () => {
     const savePrompt = vi.fn(async () => PROMPTS[0]!);
     setup({ savePrompt: savePrompt as never });
 
-    render(<SettingsScreen onError={() => {}} />);
+    render(<SettingsScreen {...panelProps()} />);
     const box = await screen.findByLabelText("Prompt");
     fireEvent.input(box, { target: { value: "Describe her jacket." } });
 
@@ -219,7 +238,7 @@ describe("the prompt library", () => {
     const savePrompt = vi.fn();
     setup({ savePrompt: savePrompt as never });
 
-    render(<SettingsScreen onError={() => {}} />);
+    render(<SettingsScreen {...panelProps()} />);
     const box = await screen.findByLabelText("Prompt");
     fireEvent.input(box, { target: { value: "some text" } });
     fireEvent.click(screen.getByRole("button", { name: /save as/i }));
@@ -240,7 +259,7 @@ describe("the prompt library", () => {
       putConfig: (async () => CONFIG) as never,
     });
 
-    render(<SettingsScreen onError={() => {}} />);
+    render(<SettingsScreen {...panelProps()} />);
     const picker = await screen.findByLabelText("Saved prompts");
 
     // "mine" and the built-in "default" share their text, and the saved one

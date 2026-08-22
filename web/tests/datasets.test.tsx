@@ -33,7 +33,8 @@ describe("the dataset picker", () => {
     const registerDataset = vi.fn(async () => dataset("poses"));
     fakeApi({ browse: async () => BROWSE, registerDataset: registerDataset as never });
 
-    render(<DatasetPicker datasets={[]} onClose={() => {}} onChanged={() => {}} />);
+    render(<DatasetPicker datasets={[]} onClose={() => {}} onChanged={() => {}}
+          onRemove={async () => {}} />);
     await waitFor(() => expect(screen.getByText("poses")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTitle("Register this folder as a dataset"));
@@ -42,7 +43,8 @@ describe("the dataset picker", () => {
 
   it("will not register a folder with no images in it", async () => {
     fakeApi({ browse: async () => BROWSE });
-    render(<DatasetPicker datasets={[]} onClose={() => {}} onChanged={() => {}} />);
+    render(<DatasetPicker datasets={[]} onClose={() => {}} onChanged={() => {}}
+          onRemove={async () => {}} />);
     await waitFor(() => expect(screen.getByText("empty")).toBeInTheDocument());
 
     expect(screen.getByTitle(/No images in this folder/)).toBeDisabled();
@@ -50,17 +52,27 @@ describe("the dataset picker", () => {
 
   it("shows an already-registered folder as registered rather than offering it again", async () => {
     fakeApi({ browse: async () => BROWSE });
-    render(<DatasetPicker datasets={[]} onClose={() => {}} onChanged={() => {}} />);
+    render(<DatasetPicker datasets={[]} onClose={() => {}} onChanged={() => {}}
+          onRemove={async () => {}} />);
 
     await waitFor(() => expect(screen.getByText("registered as api")).toBeInTheDocument());
   });
 
-  it("forgets a dataset without touching the folder", async () => {
+  it("removes a dataset from the project without touching the folder", async () => {
+    // Out of the project, *not* off the node: on a shared daemon the same
+    // folder may be in somebody else's project, and a button in a browser
+    // must not be able to take it from them.
+    const onRemove = vi.fn(async () => {});
     const forgetDataset = vi.fn(async () => ({ id: "poses", forgotten: true }));
     fakeApi({ browse: async () => BROWSE, forgetDataset: forgetDataset as never });
 
     render(
-      <DatasetPicker datasets={[dataset("poses")]} onClose={() => {}} onChanged={() => {}} />,
+      <DatasetPicker
+        datasets={[dataset("poses")]}
+        onClose={() => {}}
+        onChanged={() => {}}
+        onRemove={onRemove}
+      />,
     );
     await waitFor(() => expect(screen.getByText("Remove")).toBeInTheDocument());
 
@@ -68,7 +80,8 @@ describe("the dataset picker", () => {
     // -sounding button in a browser must not be ambiguous about scope.
     const remove = screen.getByTitle(/folder and its files are left alone/);
     fireEvent.click(remove);
-    await waitFor(() => expect(forgetDataset).toHaveBeenCalledWith("poses"));
+    await waitFor(() => expect(onRemove).toHaveBeenCalledWith("poses"));
+    expect(forgetDataset).not.toHaveBeenCalled();
   });
 
   it("tells the shell to reload after a change", async () => {
@@ -78,7 +91,14 @@ describe("the dataset picker", () => {
       registerDataset: (async () => dataset("poses")) as never,
     });
 
-    render(<DatasetPicker datasets={[]} onClose={() => {}} onChanged={onChanged} />);
+    render(
+      <DatasetPicker
+        datasets={[]}
+        onClose={() => {}}
+        onChanged={onChanged}
+        onRemove={async () => {}}
+      />,
+    );
     await waitFor(() => expect(screen.getByText("poses")).toBeInTheDocument());
     fireEvent.click(screen.getByTitle("Register this folder as a dataset"));
 
@@ -88,7 +108,8 @@ describe("the dataset picker", () => {
   it("closes on Escape", async () => {
     const onClose = vi.fn();
     fakeApi({ browse: async () => BROWSE });
-    render(<DatasetPicker datasets={[]} onClose={onClose} onChanged={() => {}} />);
+    render(<DatasetPicker datasets={[]} onClose={onClose} onChanged={() => {}}
+          onRemove={async () => {}} />);
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
@@ -101,7 +122,8 @@ describe("the dataset picker", () => {
       }) as never,
     });
 
-    render(<DatasetPicker datasets={[]} onClose={() => {}} onChanged={() => {}} />);
+    render(<DatasetPicker datasets={[]} onClose={() => {}} onChanged={() => {}}
+          onRemove={async () => {}} />);
     await waitFor(() => expect(screen.getByText(/cannot read/)).toBeInTheDocument());
   });
 });

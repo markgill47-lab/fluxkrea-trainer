@@ -24,6 +24,19 @@ import numpy as np
 #: and must survive a re-detection pass untouched.
 MANUAL = "manual"
 
+#: What shape the region actually is. The box is always the *bounding box*;
+#: this says what gets filled inside it when the mask is rendered.
+#:
+#: A face is not a rectangle. An expanded eyes-to-chin box carries four
+#: corners of pure background, and every one of them is a region the model
+#: is told to learn nothing from - shoulder, wall, another dancer's arm.
+#: An inscribed ellipse drops ~21% of that area while covering the same
+#: hair, hairline and jaw, which is the part that carries identity.
+RECT = "rect"
+ELLIPSE = "ellipse"
+
+SHAPES = frozenset({RECT, ELLIPSE})
+
 
 @dataclass(frozen=True, slots=True)
 class Box:
@@ -40,6 +53,10 @@ class Box:
     h: int
     src: str = "unknown"
     conf: float | None = None
+    #: ``rect`` or ``ellipse``. Always the bounding box either way, so
+    #: expansion, clamping, hit-testing and the review handles are the same
+    #: arithmetic for both - only the fill differs.
+    shape: str = RECT
 
     @property
     def right(self) -> int:
@@ -56,6 +73,10 @@ class Box:
     @property
     def manual(self) -> bool:
         return self.src == MANUAL
+
+    @property
+    def is_ellipse(self) -> bool:
+        return self.shape == ELLIPSE
 
     def expanded(self, factor: float, up_bias: float = 1.0) -> Box:
         """Grow the box about its centre, biased upward.
@@ -98,6 +119,11 @@ class Box:
         payload: dict[str, Any] = {"x": self.x, "y": self.y, "w": self.w, "h": self.h, "src": self.src}
         if self.conf is not None:
             payload["conf"] = round(float(self.conf), 4)
+        # Written only when it is not the default, so a box file from
+        # before shapes existed round-trips byte for byte and a review pass
+        # does not rewrite every entry the first time it is opened.
+        if self.shape != RECT:
+            payload["shape"] = self.shape
         return payload
 
     @classmethod
@@ -110,9 +136,23 @@ class Box:
                 h=int(round(float(data["h"]))),
                 src=str(data.get("src", "unknown")),
                 conf=None if data.get("conf") is None else float(data["conf"]),
+                # A file written before shapes existed holds rectangles,
+                # and an unknown shape is a rectangle rather than an error:
+                # losing a reviewer's box to a spelling is the worse fault.
+                shape=_shape(data.get("shape")),
             )
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(f"not a box: {data!r}") from exc
+
+
+def _shape(value: Any) -> str:
+    text = str(value or RECT).strip().lower()
+    return text if text in SHAPES else RECT
+
+
+def as_ellipse(box: Box) -> Box:
+    """The same region, filled as an ellipse. What detection returns."""
+    return replace(box, shape=ELLIPSE)
 
 
 @runtime_checkable

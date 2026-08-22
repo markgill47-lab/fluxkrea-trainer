@@ -8,6 +8,11 @@
  * Both of those shape this file. The filters are derived from the item
  * list rather than fetched, so their counts cannot disagree with what the
  * grid is showing; and every batch action reads the same selection.
+ *
+ * **Detect faces and Export masks are not here.** They live on the Masks
+ * screen, where their result is actually looked at. Pressing a button on
+ * one tab and having to switch to another to see whether it did the right
+ * thing is how a detect pass gets run twice.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -262,22 +267,6 @@ export function GalleryScreen({ dataset, onError, onOpenReview }: Props) {
           title="Caption images that have none, with the configured backend"
         >
           Caption
-        </button>
-        <button
-          class="btn"
-          onClick={() => void runOperation("detect", { only_missing: true })}
-          disabled={!!task}
-          title="Find faces in images that have no boxes yet"
-        >
-          Detect faces
-        </button>
-        <button
-          class="btn btn--accent"
-          onClick={() => void runOperation("mask", { detect: false, force: true })}
-          disabled={!!task}
-          title="Export masks/*.png from the stored boxes"
-        >
-          Export masks
         </button>
       </header>
 

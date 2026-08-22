@@ -402,3 +402,77 @@ def test_the_node_report_describes_the_backend_a_job_would_use(state) -> None:
         assert reported is bool(configured.available())
     finally:
         register(configured)
+
+
+# --------------------------------------------------------------------------
+# fair share
+# --------------------------------------------------------------------------
+
+
+def queued(*projects: str, directory: Path) -> JobQueue:
+    """A queue holding one job per argument, submitted in that order."""
+    jobs = JobQueue(directory=directory)
+    for index, project in enumerate(projects):
+        jobs.submit(RunSpec(model="flux2", dataset="d", name=f"run-{index}", project=project))
+    return jobs
+
+
+def test_one_project_alone_still_runs_first_come_first_served(tmp_path: Path) -> None:
+    """A single-operator node must behave exactly as FIFO did."""
+    jobs = queued("alice", "alice", "alice", directory=tmp_path)
+    assert [j.spec.name for j in jobs.waiting()] == ["run-0", "run-1", "run-2"]
+
+
+def test_a_second_student_is_not_stuck_behind_the_first_ones_batch(tmp_path: Path) -> None:
+    """The failure this exists to prevent: five runs at nine, nobody else until lunch."""
+    jobs = queued("alice", "alice", "alice", "bob", directory=tmp_path)
+    order = [j.project for j in jobs.waiting()]
+
+    assert order[:2] == ["alice", "bob"], f"bob waited behind alice's batch: {order}"
+    assert order == ["alice", "bob", "alice", "alice"]
+
+
+def test_within_a_round_it_is_still_the_order_they_arrived(tmp_path: Path) -> None:
+    jobs = queued("alice", "bob", "carol", directory=tmp_path)
+    assert [j.project for j in jobs.waiting()] == ["alice", "bob", "carol"]
+
+
+def test_unclaimed_runs_each_get_their_own_lane(tmp_path: Path) -> None:
+    """CLI and fleet runs carry no project; bundling them would make one
+    operator's scripted batch the slow lane for every other operator's."""
+    jobs = queued("", "", "alice", directory=tmp_path)
+    assert [j.project for j in jobs.waiting()] == ["", "", "alice"]
+
+
+def test_position_counts_the_whole_queue_not_one_project(tmp_path: Path) -> None:
+    """The number a student is actually asking for."""
+    jobs = queued("alice", "bob", "alice", directory=tmp_path)
+    waiting = jobs.waiting()
+
+    assert [jobs.position(j.id) for j in waiting] == [0, 1, 2]
+    assert jobs.position("no-such-job") == -1
+
+
+def test_the_queue_reports_who_is_waiting(api: httpx.Client) -> None:
+    """A shared queue is only useful if it says whose runs are in it."""
+    # Nothing picks the jobs up, so they stay where this test can read them.
+    # The ordering itself is exercised against JobQueue above; what is under
+    # test here is the shape of the answer.
+    api.app_state.jobs.runner = None  # type: ignore[attr-defined]
+
+    for project in ("alice", "bob"):
+        response = api.post(
+            "/jobs",
+            json={"model": "flux2", "dataset": "d", "project": project, "name": f"{project}-run"},
+        )
+        assert response.status_code == 202, response.text
+
+    payload = api.get("/jobs").json()
+    assert [entry["project"] for entry in payload["queue"]] == ["alice", "bob"]
+    assert payload["depth"] == 2
+
+    mine = api.get("/jobs", params={"project": "bob"}).json()
+    assert [job["spec"]["name"] for job in mine["jobs"]] == ["bob-run"]
+    # Filtered to bob's job, but the position still counts alice's.
+    assert mine["jobs"][0]["position"] == 1
+    assert len(mine["queue"]) == 2, "the full queue is shown even when jobs are filtered"

@@ -6,13 +6,20 @@
  * far right, because over an SSH tunnel it is a thing you check. A 48px
  * rail, and a content region that owns its own scrolling. The shell never
  * scrolls.
+ *
+ * Between the node and the dataset sits the **project**, because the
+ * dataset list is scoped to it. On a lab node several students share one
+ * daemon, so the shell shows one project's datasets rather than every
+ * folder anybody has registered — and the project is also the identity a
+ * submitted run carries into the shared queue.
  */
 
-import { useCallback, useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { api, ApiError, isAbort } from "~/api/client";
-import type { Dataset, Health, NodeInfo } from "~/api/types";
+import type { Dataset, Health, NodeInfo, Project } from "~/api/types";
 import { DatasetPicker } from "~/datasets/DatasetPicker";
 import { GalleryScreen } from "~/gallery/GalleryScreen";
+import { ProjectGate, rememberProject, storedProject } from "~/projects/ProjectGate";
 import { ReviewScreen } from "~/review/ReviewScreen";
 import { TrainScreen } from "~/train/TrainScreen";
 import { SettingsScreen } from "~/settings/SettingsScreen";
@@ -31,7 +38,7 @@ import { SettingsScreen } from "~/settings/SettingsScreen";
  * Fleet aggregation stays where the node list belongs: on the operator's
  * own machine, via `fk fleet status`.
  */
-type Screen = "datasets" | "review" | "training" | "settings";
+type Screen = "datasets" | "masks" | "training" | "settings";
 
 /** How often to re-check the daemon. Connection state is UI state. */
 const HEALTH_INTERVAL = 10_000;
@@ -40,9 +47,12 @@ export function App() {
   const [screen, setScreen] = useState<Screen>("datasets");
   const [health, setHealth] = useState<Health | null>(null);
   const [node, setNode] = useState<NodeInfo | null>(null);
+  const [projects, setProjects] = useState<Project[] | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(storedProject);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [dataset, setDataset] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [gateNotice, setGateNotice] = useState<string | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);
   const [picking, setPicking] = useState(false);
 
@@ -61,41 +71,155 @@ export function App() {
     return () => clearInterval(timer);
   }, [poll]);
 
-  const reloadDatasets = useCallback(async () => {
-    try {
-      const listing = await api.datasets();
-      setDatasets(listing.datasets);
-      // Keep the selection if it survived; otherwise fall to the first one.
-      setDataset((existing) =>
-        existing && listing.datasets.some((entry) => entry.id === existing)
-          ? existing
-          : (listing.datasets[0]?.id ?? null),
-      );
-    } catch (caught) {
-      if (!isAbort(caught)) {
-        setError(caught instanceof ApiError ? caught.message : String(caught));
-      }
+  const fail = useCallback((caught: unknown) => {
+    if (!isAbort(caught)) {
+      setError(caught instanceof ApiError ? caught.message : String(caught));
     }
   }, []);
+
+  // -- projects ------------------------------------------------------------
+
+  const reloadProjects = useCallback(async () => {
+    try {
+      const payload = await api.projects();
+      setProjects(payload.projects);
+      return payload.projects;
+    } catch (caught) {
+      fail(caught);
+      // An empty list rather than null: null means "not asked yet", and
+      // leaving it there would spin forever on a daemon that cannot answer.
+      setProjects([]);
+      return [];
+    }
+  }, [fail]);
+
+  useEffect(() => {
+    void reloadProjects();
+  }, [reloadProjects]);
+
+  const project = useMemo(
+    () => (projects ?? []).find((entry) => entry.id === projectId) ?? null,
+    [projects, projectId],
+  );
+
+  // A project deleted from another browser leaves this one holding an id
+  // that no longer resolves. Say so on the way back to the gate rather
+  // than silently reopening somebody else's project.
+  useEffect(() => {
+    if (!projects || !projectId || project) return;
+    setGateNotice(`The project you had open (${projectId}) is no longer on this node.`);
+    setProjectId(null);
+    rememberProject(null);
+  }, [projects, projectId, project]);
+
+  const openProject = useCallback((id: string) => {
+    setGateNotice(null);
+    setProjectId(id);
+    rememberProject(id);
+    setScreen("datasets");
+    setDataset(null);
+  }, []);
+
+  const closeProject = useCallback(() => {
+    setProjectId(null);
+    rememberProject(null);
+    setDataset(null);
+    setGateNotice(null);
+    void reloadProjects();
+  }, [reloadProjects]);
+
+  // -- datasets ------------------------------------------------------------
+
+  const reloadDatasets = useCallback(async () => {
+    const [listing, current] = await Promise.all([
+      api.datasets().catch((caught) => {
+        fail(caught);
+        return null;
+      }),
+      projectId
+        ? api.project(projectId).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    if (!listing) return;
+
+    // Scoped to the project. `current.datasets` is already resolved
+    // against the registry by the daemon, so a folder somebody deregistered
+    // does not appear here as a row that 404s on click.
+    const allowed = current ? new Set(current.datasets) : null;
+    const visible = allowed
+      ? listing.datasets.filter((entry) => allowed.has(entry.id))
+      : listing.datasets;
+
+    setDatasets(visible);
+    setProjects((existing) =>
+      existing && current
+        ? existing.map((entry) => (entry.id === current.id ? current : entry))
+        : existing,
+    );
+    // Keep the selection if it survived; otherwise fall to the first one.
+    setDataset((existing) =>
+      existing && visible.some((entry) => entry.id === existing)
+        ? existing
+        : (visible[0]?.id ?? null),
+    );
+  }, [projectId, fail]);
 
   useEffect(() => {
     (async () => {
       try {
         setNode(await api.node());
       } catch (caught) {
-        if (!isAbort(caught)) {
-          setError(caught instanceof ApiError ? caught.message : String(caught));
-        }
+        fail(caught);
       }
     })();
+  }, [fail]);
+
+  useEffect(() => {
     void reloadDatasets();
   }, [reloadDatasets]);
+
+  /** Register a folder and put it in the open project, in one step. */
+  const onDatasetsChanged = useCallback(
+    async (added?: string) => {
+      if (added && projectId) {
+        try {
+          await api.addProjectDataset(projectId, added);
+        } catch (caught) {
+          fail(caught);
+        }
+      }
+      await reloadDatasets();
+    },
+    [projectId, reloadDatasets, fail],
+  );
 
   const detectors = node
     ? Object.entries(node.detectors)
         .filter(([, ready]) => ready)
         .map(([name]) => name)
     : ["yunet"];
+
+  // Nothing renders until the project list has arrived: guessing wrong for
+  // one frame means opening somebody else's dataset.
+  if (projects === null) {
+    return (
+      <div class="empty">
+        <span class="spinner" aria-label="Loading" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <ProjectGate
+        projects={projects}
+        notice={gateNotice}
+        onOpen={openProject}
+        onCreated={reloadProjects}
+        onError={setError}
+      />
+    );
+  }
 
   return (
     <div class="shell">
@@ -105,6 +229,20 @@ export function App() {
           <strong>{node?.name ?? health?.node ?? "…"}</strong>
         </label>
         <span class="topbar__brand">FluxKrea 26</span>
+
+        <select
+          class="node-select"
+          value={project.id}
+          onChange={(event) => openProject((event.target as HTMLSelectElement).value)}
+          aria-label="Project"
+          title="The project every screen is scoped to"
+        >
+          {projects.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.name}
+            </option>
+          ))}
+        </select>
 
         {datasets.length > 0 && (
           <select
@@ -144,7 +282,7 @@ export function App() {
         <RailItem label="Datasets" active={screen === "datasets"} onClick={() => setScreen("datasets")}>
           ▤
         </RailItem>
-        <RailItem label="Review" active={screen === "review"} onClick={() => setScreen("review")}>
+        <RailItem label="Masks" active={screen === "masks"} onClick={() => setScreen("masks")}>
           ◧
         </RailItem>
         <RailItem label="Training" active={screen === "training"} onClick={() => setScreen("training")}>
@@ -170,47 +308,68 @@ export function App() {
             <GalleryScreen
               dataset={dataset}
               onError={setError}
-              onOpenReview={() => setScreen("review")}
+              onOpenReview={() => setScreen("masks")}
             />
           ) : (
-            <NoDataset onAdd={() => setPicking(true)} />
+            <NoDataset project={project} onAdd={() => setPicking(true)} />
           ))}
 
-        {screen === "review" &&
+        {screen === "masks" &&
           (dataset ? (
             <ReviewScreen dataset={dataset} detectors={detectors} onError={setError} />
           ) : (
-            <NoDataset onAdd={() => setPicking(true)} />
+            <NoDataset project={project} onAdd={() => setPicking(true)} />
           ))}
 
         {screen === "training" && (
           <TrainScreen
             datasets={datasets}
             dataset={dataset}
+            project={project}
             onDataset={setDataset}
+            onProject={(updated) =>
+              setProjects((existing) =>
+                (existing ?? []).map((entry) => (entry.id === updated.id ? updated : entry)),
+              )
+            }
             onError={setError}
           />
         )}
 
-        {screen === "settings" && <SettingsScreen onError={setError} />}
+        {screen === "settings" && (
+          <SettingsScreen
+            project={project}
+            projects={projects}
+            onError={setError}
+            onProjectsChanged={reloadProjects}
+            onOpenProject={openProject}
+            onCloseProject={closeProject}
+          />
+        )}
       </main>
 
       {picking && (
         <DatasetPicker
           datasets={datasets}
           onClose={() => setPicking(false)}
-          onChanged={() => void reloadDatasets()}
+          onChanged={(added?: string) => void onDatasetsChanged(added)}
+          onRemove={async (id) => {
+            // Out of the project, not off the node. On a shared daemon the
+            // same folder may be in somebody else's project, and a button
+            // in a browser must not be able to take it from them.
+            if (projectId) await api.removeProjectDataset(projectId, id);
+          }}
         />
       )}
     </div>
   );
 }
 
-function NoDataset({ onAdd }: { onAdd(): void }) {
+function NoDataset({ project, onAdd }: { project: Project; onAdd(): void }) {
   return (
     <div class="empty">
-      <div class="empty__title">No dataset registered</div>
-      <div>Point this node at a folder of images to get started.</div>
+      <div class="empty__title">No dataset in {project.name}</div>
+      <div>Point this project at a folder of images to get started.</div>
       <div>
         <button class="btn btn--accent" onClick={onAdd}>
           Add a dataset
@@ -226,7 +385,7 @@ function NoDataset({ onAdd }: { onAdd(): void }) {
 function titleOf(screen: Screen): string {
   return {
     datasets: "Dataset gallery",
-    review: "Mask review",
+    masks: "Masks",
     training: "Training monitor",
     settings: "Settings",
   }[screen];

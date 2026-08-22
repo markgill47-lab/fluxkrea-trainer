@@ -27,6 +27,14 @@ class RunSpec:
     dataset: str
     name: str = ""
     output: str = ""
+    #: Which project submitted this run, and therefore who is waiting on it.
+    #:
+    #: There are no accounts on a lab node, so the project *is* the
+    #: identity: it is what a shared queue lists beside a job and what the
+    #: fair-share ordering interleaves on. Empty for a run submitted by the
+    #: CLI or by anyone not working in a project, which is still valid - it
+    #: simply queues as its own party of one.
+    project: str = ""
     #: Which GPU to pin to. One queue slot per device.
     device: int = 0
     steps: int = 0

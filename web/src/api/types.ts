@@ -16,6 +16,11 @@ export interface Health {
   tasks_active: number;
   /** The daemon is running code that has since been edited on disk. */
   stale?: boolean;
+  /** How many projects exist, so the shell knows whether to offer a picker
+   *  or go straight to "create one". */
+  projects?: number;
+  /** Serving a room off a LAN address with no token. */
+  lab_mode?: boolean;
 }
 
 export interface Gpu {
@@ -88,6 +93,17 @@ export interface ItemsResponse {
 /** Box source. `manual` boxes are drawn by a human and survive re-detection. */
 export type BoxSource = "manual" | "yunet" | "unknown" | string;
 
+/**
+ * What the region inside the bounding box is filled as.
+ *
+ * A face is not a rectangle. The corners of an expanded eyes-to-chin box
+ * are shoulder and wall, and masking them tells the run to learn nothing
+ * from pixels it should be learning from. Detection produces ellipses;
+ * `rect` stays because a hand-drawn box over a sign or a logo genuinely is
+ * one, and because every box file written before this existed holds them.
+ */
+export type BoxShape = "rect" | "ellipse";
+
 export interface Box {
   x: number;
   y: number;
@@ -95,6 +111,8 @@ export interface Box {
   h: number;
   src: BoxSource;
   conf?: number | null;
+  /** Absent means `rect` — the daemon omits it for the default. */
+  shape?: BoxShape;
 }
 
 export interface BoxesResponse {
@@ -174,6 +192,8 @@ export interface RunSpec {
   dataset: string;
   name: string;
   output: string;
+  /** Which project submitted this. The only identity a lab node has. */
+  project: string;
   device: number;
   steps: number;
   batch_size: number;
@@ -197,10 +217,93 @@ export interface Job {
   finished: number | null;
   error: string;
   device: number;
+  project: string;
   config_path: string;
   progress: { step: number; total: number };
   events: number;
   spec: RunSpec;
+  /** How many runs are ahead of this one across the *whole* queue, or -1
+   *  once it is no longer waiting. Counted by the daemon, because a client
+   *  counting its own filtered list would say "you are next" while four
+   *  other people were in front. */
+  position?: number;
+}
+
+/** One waiting run, as the shared queue lists it. */
+export interface QueueEntry {
+  id: string;
+  project: string;
+  name: string;
+  model?: string;
+  device?: number;
+}
+
+export interface JobsResponse {
+  jobs: Job[];
+  /** Every waiting run on the node, in the order it will start. Not
+   *  filtered by project, even when `jobs` is. */
+  queue: QueueEntry[];
+  running: QueueEntry[];
+  depth: number;
+  devices: number;
+  runner: boolean;
+}
+
+// --------------------------------------------------------------------------
+// what a finished run produced
+// --------------------------------------------------------------------------
+
+/** One `.safetensors` file in a run's output folder. */
+export interface Artifact {
+  name: string;
+  path: string;
+  /** The step it was saved at, or null for the final weights. */
+  step: number | null;
+  final: boolean;
+  size: number;
+  mtime: number;
+}
+
+export interface ArtifactsResponse {
+  id: string;
+  artifacts: Artifact[];
+  /** The `models/loras/<here>` folder these belong in. */
+  family: string;
+  comfyui: string;
+  /** False when there is nothing to publish, or nowhere to publish it. */
+  publishable: boolean;
+}
+
+export interface PublishResult {
+  id: string;
+  artifact: string;
+  published: string;
+  size: number;
+}
+
+// --------------------------------------------------------------------------
+// projects
+// --------------------------------------------------------------------------
+
+/**
+ * A named group of dataset folders sharing one training config.
+ *
+ * The project is also the identity: a lab node has no accounts, so the
+ * project a browser has open is what the shared queue lists beside a run.
+ */
+export interface Project {
+  id: string;
+  name: string;
+  /** Dataset ids, already resolved against the node's registry. */
+  datasets: string[];
+  dataset_details: Dataset[];
+  /** Ids the project holds that the node no longer has registered. Shown
+   *  rather than hidden, so a missing folder is a visible fact. */
+  missing: string[];
+  /** The shared training form. Opaque to the daemon. */
+  config: Record<string, unknown>;
+  created: number;
+  updated: number;
 }
 
 export interface Trend {

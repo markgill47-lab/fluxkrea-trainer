@@ -63,6 +63,13 @@ class Model:
     #: Used to find a checkpoint already sitting in a ComfyUI folder rather
     #: than downloading a second copy of it.
     weight_globs: tuple[str, ...] = field(default_factory=tuple)
+    #: The folder a finished LoRA is published into, under a ComfyUI
+    #: install's ``models/loras/``. Named per model rather than derived
+    #: from the arch string for the same reason everything else here is
+    #: named: ``krea2`` and ``flux2_klein_9b`` both start "flux-ish" to a
+    #: substring test, and v1's habit of inferring from names is what put a
+    #: checkpoint in the wrong trainer.
+    lora_dir: str = ""
     #: Text encoder and VAE the arch pulls in, for ``fk node status`` to
     #: report and for a human to recognise what a run will download.
     text_encoder: str = ""
@@ -79,6 +86,7 @@ class Model:
             "arch": self.arch,
             "label": self.label,
             "repo": self.repo,
+            "lora_dir": self.lora_dir,
             "network_dim": self.network_dim,
             "network_alpha": self.network_alpha,
             "low_vram": self.low_vram,
@@ -124,6 +132,7 @@ def find_local_weights(model: Model, roots: Iterable[str | Path]) -> Path | None
 MODELS: tuple[Model, ...] = (
     Model(
         id="flux2",
+        lora_dir="flux2",
         repo="black-forest-labs/FLUX.2-dev",
         weights_gb=64.0,
         weight_globs=('*flux*2*dev*.safetensors',),
@@ -139,6 +148,7 @@ MODELS: tuple[Model, ...] = (
     ),
     Model(
         id="flux2-klein-4b",
+        lora_dir="flux2",
         repo="black-forest-labs/FLUX.2-klein-base-4B",
         weights_gb=7.2,
         weight_globs=('*klein*base*4b*.safetensors', '*klein*4b*.safetensors'),
@@ -154,6 +164,7 @@ MODELS: tuple[Model, ...] = (
     ),
     Model(
         id="flux2-klein-9b",
+        lora_dir="flux2",
         repo="black-forest-labs/FLUX.2-klein-base-9B",
         weights_gb=16.9,
         weight_globs=('*klein*base*9b*.safetensors', '*klein*9b*.safetensors'),
@@ -169,6 +180,7 @@ MODELS: tuple[Model, ...] = (
     ),
     Model(
         id="krea2",
+        lora_dir="krea2",
         arch="krea2",
         # No public repo: Krea 2 is a local checkpoint here, so a run must
         # be told where it is - backends.model_paths or extra.model_path.
@@ -186,6 +198,7 @@ MODELS: tuple[Model, ...] = (
     ),
     Model(
         id="flux1",
+        lora_dir="flux1",
         repo="black-forest-labs/FLUX.1-dev",
         weights_gb=23.8,
         weight_globs=('*flux*1*dev*.safetensors', 'flux1*.safetensors'),

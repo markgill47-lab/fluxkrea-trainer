@@ -35,10 +35,32 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 @router.get("")
 def list_jobs(
     status: str | None = Query(default=None),
+    project: str | None = Query(default=None),
     state: State = Depends(get_state),
 ) -> dict[str, Any]:
+    """Every job, plus the waiting order the node will actually start in.
+
+    ``queue`` is separate from ``jobs`` because they answer different
+    questions and ``project=`` filters only the first. A student looking at
+    their own three runs still needs to see that eleven runs from four
+    other projects are in front of them - a filtered list showing "3
+    queued" would be true and completely misleading.
+    """
+    jobs = state.jobs.list(status=status)
+    if project is not None:
+        jobs = [job for job in jobs if job.project == project]
+
+    waiting = state.jobs.waiting()
     return {
-        "jobs": [j.as_dict() for j in state.jobs.list(status=status)],
+        "jobs": [{**j.as_dict(), "position": state.jobs.position(j.id)} for j in jobs],
+        "queue": [
+            {"id": j.id, "project": j.project, "name": j.spec.name, "model": j.spec.model}
+            for j in waiting
+        ],
+        "running": [
+            {"id": j.id, "project": j.project, "name": j.spec.name, "device": j.device}
+            for j in state.jobs.list(status="running")
+        ],
         "depth": state.jobs.depth(),
         "devices": state.jobs.devices,
         "runner": state.jobs.runner is not None,
@@ -104,7 +126,8 @@ def submit(payload: dict[str, Any] = Body(...), state: State = Depends(get_state
 
 @router.get("/{job_id}")
 def get_job(job_id: str, state: State = Depends(get_state)) -> dict[str, Any]:
-    return _job(state, job_id).as_dict()
+    job = _job(state, job_id)
+    return {**job.as_dict(), "position": state.jobs.position(job_id)}
 
 
 @router.delete("/{job_id}")
@@ -181,6 +204,113 @@ def sample_image(job_id: str, name: str, state: State = Depends(get_state)) -> F
         if entry["name"] == name:
             return FileResponse(entry["path"], media_type="image/jpeg")
     raise Denied(f"no sample {name!r} for job {job_id}", status=404)
+
+
+@router.get("/{job_id}/artifacts")
+def artifacts(job_id: str, state: State = Depends(get_state)) -> dict[str, Any]:
+    """The LoRAs this run wrote, final first.
+
+    Listed rather than assumed to be one file: ai-toolkit keeps three
+    rotated checkpoints beside the final weights, and "the run at step
+    3000 was better than the one it finished on" is a real thing to want.
+    """
+    from ...core.backends.artifacts import find_artifacts, lora_family
+
+    job = _job(state, job_id)
+    found = find_artifacts(job.spec.output)
+
+    # Named even when nothing is published yet, so the button can say where
+    # it would go before it is pressed.
+    try:
+        family = lora_family(job.spec.model)
+    except Exception:  # noqa: BLE001 - an unknown model is not a 500 here
+        family = ""
+
+    return {
+        "id": job_id,
+        "artifacts": [a.as_dict() for a in found],
+        "family": family,
+        "comfyui": _comfyui(state).as_posix() if _comfyui(state) else "",
+        "publishable": bool(found) and bool(_comfyui(state)) and bool(family),
+    }
+
+
+@router.get("/{job_id}/artifacts/{name}")
+def download_artifact(job_id: str, name: str, state: State = Depends(get_state)) -> FileResponse:
+    """Download one LoRA.
+
+    Matched against the listing rather than joined onto the output folder,
+    so a name arriving over HTTP can only ever select a file this run
+    actually produced.
+    """
+    from ...core.backends.artifacts import find_artifacts
+
+    job = _job(state, job_id)
+    for entry in find_artifacts(job.spec.output):
+        if entry.name == name:
+            return FileResponse(
+                entry.path,
+                media_type="application/octet-stream",
+                filename=entry.name,
+            )
+    raise Denied(f"no artifact {name!r} for job {job_id}", status=404)
+
+
+@router.post("/{job_id}/publish")
+def publish_artifact(
+    job_id: str,
+    payload: dict[str, Any] = Body(default={}),
+    state: State = Depends(get_state),
+) -> dict[str, Any]:
+    """Copy a finished LoRA into ComfyUI's ``models/loras/<family>``.
+
+    The family comes from the model record, so a FLUX.2 LoRA lands in
+    ``flux2`` and a Krea 2 one in ``krea2`` without anybody choosing. A
+    name collision refuses rather than overwrites: on a shared node the
+    other file is somebody else's afternoon.
+    """
+    from ...core.backends.artifacts import PublishError, find_artifacts, publish
+
+    job = _job(state, job_id)
+    found = find_artifacts(job.spec.output)
+    if not found:
+        raise Denied(
+            f"job {job_id} has no .safetensors in {job.spec.output or 'its output folder'} - "
+            f"it is {job.status}, and there is nothing to publish yet",
+            status=409,
+        )
+
+    wanted = str(payload.get("artifact") or "").strip()
+    chosen = next((a for a in found if a.name == wanted), None) if wanted else found[0]
+    if chosen is None:
+        raise Denied(f"no artifact {wanted!r} for job {job_id}", status=404)
+
+    try:
+        written = publish(
+            chosen.path,
+            _comfyui(state),
+            job.spec.model,
+            name=str(payload.get("name") or ""),
+            overwrite=bool(payload.get("overwrite", False)),
+        )
+    except PublishError as exc:
+        # 409 rather than 500: every one of these is a state the caller can
+        # do something about - unset path, name taken, unknown model.
+        raise Denied(str(exc), status=409) from exc
+
+    return {
+        "id": job_id,
+        "artifact": chosen.name,
+        "published": written.as_posix(),
+        "size": chosen.size,
+    }
+
+
+def _comfyui(state: State) -> Path | None:
+    from ...core import paths as core_paths
+
+    configured = getattr(state.config.backends, "comfyui_path", None)
+    return core_paths.expand(configured) if configured else None
 
 
 @router.get("/{job_id}/folders")

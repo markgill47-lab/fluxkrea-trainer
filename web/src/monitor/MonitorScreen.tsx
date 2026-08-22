@@ -10,9 +10,16 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
-import { api, ApiError, isAbort } from "~/api/client";
+import { api, ApiError, assets, isAbort } from "~/api/client";
 import { subscribe, type ConnectionState } from "~/api/stream";
-import type { Job, LossPayload, SampleImage, StreamEvent } from "~/api/types";
+import type {
+  Artifact,
+  ArtifactsResponse,
+  Job,
+  LossPayload,
+  SampleImage,
+  StreamEvent,
+} from "~/api/types";
 import { LogStream, type LogLine } from "./LogStream";
 import { LossChart } from "./LossChart";
 import { SampleStrip } from "./SampleStrip";
@@ -22,6 +29,9 @@ interface Props {
   onError(message: string | null): void;
   /** Open on this job rather than the newest. Set after submitting one. */
   initialJob?: string | null;
+  /** Show only this project's runs. On a shared node the unfiltered list is
+   *  everybody's, and other people's runs are not yours to watch. */
+  project?: string;
 }
 
 /** Lines kept in the browser. The daemon keeps the durable record. */
@@ -30,14 +40,27 @@ const MAX_LINES = 20_000;
 /** How often to re-pull the derived series while a run is live. */
 const LOSS_INTERVAL = 4000;
 
-export function MonitorScreen({ onError, initialJob = null }: Props) {
+export function MonitorScreen({ onError, initialJob = null, project }: Props) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jobId, setJobId] = useState<string | null>(initialJob);
   const [job, setJob] = useState<Job | null>(null);
   const [loss, setLoss] = useState<LossPayload | null>(null);
   const [samples, setSamples] = useState<SampleImage[]>([]);
+  const [artifacts, setArtifacts] = useState<ArtifactsResponse | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState<string | null>(null);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [connection, setConnection] = useState<ConnectionState>("connecting");
+  /**
+   * Whose runs to list.
+   *
+   * The project by default: on a shared node the unfiltered list is
+   * everybody's, and scrolling past nine other people's runs to find your
+   * own is not a monitor. But "all" has to exist — runs submitted from the
+   * CLI and from the fleet carry no project, and without this they would
+   * be invisible in the UI on the very node that produced them.
+   */
+  const [scope, setScope] = useState<"project" | "node">(project ? "project" : "node");
   const [logScale, setLogScale] = useState(false);
   const [filter, setFilter] = useState("");
   const [minLevel, setMinLevel] = useState<LogLine["level"]>("info");
@@ -52,7 +75,7 @@ export function MonitorScreen({ onError, initialJob = null }: Props) {
 
   const reloadJobs = useCallback(async () => {
     try {
-      const payload = await api.jobs();
+      const payload = await api.jobs(scope === "project" ? project : undefined);
       setJobs(payload.jobs);
       setJobId((current) => current ?? initialJob ?? payload.jobs[0]?.id ?? null);
       onError(null);
@@ -61,11 +84,18 @@ export function MonitorScreen({ onError, initialJob = null }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [onError, initialJob]);
+  }, [onError, initialJob, project, scope]);
 
   useEffect(() => {
     void reloadJobs();
   }, [reloadJobs]);
+
+  // Changing scope can drop the selected run out of the list. Clear it and
+  // let the reload pick the first one rather than streaming a job the
+  // picker no longer shows.
+  useEffect(() => {
+    setJobId((current) => (current && jobs.some((entry) => entry.id === current) ? current : null));
+  }, [jobs]);
 
   // -- the selected job ----------------------------------------------------
 
@@ -74,9 +104,34 @@ export function MonitorScreen({ onError, initialJob = null }: Props) {
     setLines([]);
     pending.current = [];
     setLoss(null);
+    setArtifacts(null);
+    setPublished(null);
     void api.job(jobId).then(setJob).catch(() => undefined);
     void api.samples(jobId).then((payload) => setSamples(payload.samples)).catch(() => undefined);
   }, [jobId]);
+
+  /**
+   * What this run produced, once it has stopped producing it.
+   *
+   * Only listed for a run that has finished. Mid-run the output folder
+   * holds rotated checkpoints that are about to be deleted, and offering a
+   * download of a file that will not exist by the time the click lands is
+   * worse than offering nothing.
+   */
+  const status = job?.status;
+  useEffect(() => {
+    if (!jobId || !status || ["queued", "running"].includes(status)) return;
+    let live = true;
+    void api
+      .artifacts(jobId)
+      .then((payload) => {
+        if (live) setArtifacts(payload);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [jobId, status]);
 
   // -- the event stream ----------------------------------------------------
 
@@ -175,6 +230,27 @@ export function MonitorScreen({ onError, initialJob = null }: Props) {
     }
   }, [jobId, reloadJobs, onError]);
 
+  const publish = useCallback(
+    async (artifact: Artifact) => {
+      if (!jobId) return;
+      setPublishing(true);
+      try {
+        const result = await api.publishArtifact(jobId, { artifact: artifact.name });
+        setPublished(result.published);
+        onError(null);
+      } catch (error) {
+        if (isAbort(error)) return;
+        // A name collision is the expected refusal on a shared node - the
+        // file already there is somebody else's afternoon. The message says
+        // so; nothing is retried automatically.
+        onError(error instanceof ApiError ? error.message : String(error));
+      } finally {
+        setPublishing(false);
+      }
+    },
+    [jobId, onError],
+  );
+
   const running = job?.status === "running";
   const queued = job?.status === "queued";
 
@@ -191,10 +267,23 @@ export function MonitorScreen({ onError, initialJob = null }: Props) {
   if (!jobs.length) {
     return (
       <div class="empty">
-        <div class="empty__title">No training runs on this node</div>
-        <div>
-          Submit one with <code class="mono">fk train --model flux2 --dataset poses</code>
+        <div class="empty__title">
+          {scope === "project" ? "No runs in this project yet" : "No training runs on this node"}
         </div>
+        <div>
+          Configure one on the other tab, or{" "}
+          <code class="mono">fk train --model flux2 --dataset poses</code>
+        </div>
+        {scope === "project" && (
+          <div>
+            {/* The node may well have runs — somebody else's, or one
+                submitted from the CLI with no project attached. Saying
+                "none on this node" when there are nine would be a lie. */}
+            <button class="btn" onClick={() => setScope("node")}>
+              Show every run on this node
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -215,9 +304,22 @@ export function MonitorScreen({ onError, initialJob = null }: Props) {
           ))}
         </select>
 
+        {project && (
+          <button
+            class="btn"
+            onClick={() => setScope((current) => (current === "project" ? "node" : "project"))}
+            title="Switch between this project's runs and every run on the node"
+          >
+            {scope === "project" ? "this project" : "whole node"}
+          </button>
+        )}
+
         {job && (
           <>
             <span class="monitor__title">{job.spec.name || job.spec.model}</span>
+            {scope === "node" && job.project && (
+              <span class="chip">{job.project}</span>
+            )}
             <span class={`pill-status pill-status--${job.status}`}>{job.status}</span>
             <span class="hint mono">gpu {job.device}</span>
           </>
@@ -258,6 +360,16 @@ export function MonitorScreen({ onError, initialJob = null }: Props) {
 
       <SampleStrip samples={samples} jobId={jobId} />
 
+      {artifacts && artifacts.artifacts.length > 0 && jobId && (
+        <ArtifactBar
+          jobId={jobId}
+          payload={artifacts}
+          publishing={publishing}
+          published={published}
+          onPublish={publish}
+        />
+      )}
+
       <LogStream
         lines={logLines}
         minLevel={minLevel}
@@ -267,6 +379,98 @@ export function MonitorScreen({ onError, initialJob = null }: Props) {
       />
     </div>
   );
+}
+
+/**
+ * What the run produced, and the two things anybody wants to do with it.
+ *
+ * **Download** is a plain link rather than a fetch: these are 90MB and up,
+ * and pulling one through JavaScript into a blob would hold the whole file
+ * in memory and lose the progress the browser gives for free.
+ *
+ * **Publish** copies it into ComfyUI's `models/loras/<family>` *on the
+ * node*. Over a LAN URL that is a different machine from the one looking
+ * at this, which is the whole reason it is a button rather than an
+ * instruction. The family comes off the model record, so nobody chooses
+ * between `flux2` and `krea2` and nobody gets it wrong.
+ */
+function ArtifactBar({
+  jobId,
+  payload,
+  publishing,
+  published,
+  onPublish,
+}: {
+  jobId: string;
+  payload: ArtifactsResponse;
+  publishing: boolean;
+  published: string | null;
+  onPublish(artifact: Artifact): void;
+}) {
+  const [chosen, setChosen] = useState(payload.artifacts[0]?.name ?? "");
+  const artifact =
+    payload.artifacts.find((entry) => entry.name === chosen) ?? payload.artifacts[0]!;
+
+  return (
+    <section class="artifacts">
+      <span class="artifacts__title">Trained LoRA</span>
+
+      {payload.artifacts.length > 1 ? (
+        <select
+          class="node-select"
+          value={artifact.name}
+          onChange={(event) => setChosen((event.target as HTMLSelectElement).value)}
+          aria-label="Which checkpoint"
+        >
+          {payload.artifacts.map((entry) => (
+            <option key={entry.name} value={entry.name}>
+              {entry.final ? "final" : `step ${entry.step?.toLocaleString()}`} ·{" "}
+              {megabytes(entry.size)}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span class="artifacts__name mono">
+          {artifact.name} · {megabytes(artifact.size)}
+        </span>
+      )}
+
+      <span class="topbar__spacer" />
+
+      {published ? (
+        <span class="chip" title={published}>
+          ✓ published to {payload.family}
+        </span>
+      ) : (
+        <span class="hint">
+          {payload.publishable
+            ? `goes to models/loras/${payload.family}`
+            : "set backends.comfyui_path on this node to publish"}
+        </span>
+      )}
+
+      <a class="btn" href={assets.artifact(jobId, artifact.name)} download={artifact.name}>
+        Download
+      </a>
+      <button
+        class="btn btn--accent"
+        disabled={!payload.publishable || publishing}
+        onClick={() => onPublish(artifact)}
+        title={
+          payload.publishable
+            ? `Copy into ${payload.comfyui}/models/loras/${payload.family} on this node`
+            : "This node has no backends.comfyui_path configured"
+        }
+      >
+        {publishing ? <span class="spinner" /> : null}
+        Publish to ComfyUI
+      </button>
+    </section>
+  );
+}
+
+function megabytes(bytes: number): string {
+  return `${(bytes / 1_000_000).toFixed(0)} MB`;
 }
 
 /**

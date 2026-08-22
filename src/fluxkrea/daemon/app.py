@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from .. import __version__
 from ..core.config import Config, load
 from . import web
-from .routes import datasets, jobs, node, settings, tasks
+from .routes import datasets, jobs, node, projects, settings, tasks
 from .security import Denied, check_token, extract_token
 from .state import State
 
@@ -71,7 +71,14 @@ def create_app(config: Config | None = None, state: State | None = None) -> Fast
     async def bad_value(request: Request, exc: ValueError) -> JSONResponse:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
-    for router in (node.router, settings.router, datasets.router, tasks.router, jobs.router):
+    for router in (
+        node.router,
+        settings.router,
+        projects.router,
+        datasets.router,
+        tasks.router,
+        jobs.router,
+    ):
         app.include_router(router, prefix=API)
 
     @app.get("/api", include_in_schema=False)
@@ -109,10 +116,24 @@ def serve(config: Config | None = None) -> None:
     """Run the daemon. Refuses a non-loopback bind without a token."""
     import uvicorn
 
-    from .security import check_bind
+    from .security import check_bind, is_loopback, lab_mode, lan_addresses
 
     resolved = config or load()
     check_bind(resolved)
+
+    if not is_loopback(resolved.daemon.host):
+        # Say it out loud, at the top of the log, every time. An open port
+        # that nobody remembers opening is the failure mode here, and the
+        # startup lines are the thing this project already tells you to
+        # read before believing anything else.
+        print("")
+        print("  ** listening beyond localhost **")
+        if lab_mode(resolved):
+            print("     lab mode: no token required, anyone on this network can drive this node")
+        print(f"     roots     {', '.join(r.as_posix() for r in resolved.dataset.roots) or 'NONE'}")
+        for url in lan_addresses(resolved.daemon.port):
+            print(f"     students  {url}")
+        print("")
 
     uvicorn.run(
         create_app(resolved),
