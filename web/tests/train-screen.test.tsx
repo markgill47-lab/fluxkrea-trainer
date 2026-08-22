@@ -15,16 +15,30 @@ import { useState } from "preact/hooks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "~/api/client";
 import { TrainScreen } from "~/train/TrainScreen";
-import { dataset, fakeApi, job, model, plan } from "./fixtures";
+import { dataset, fakeApi, job, jobsResponse, model, plan, project } from "./fixtures";
 
 const DATASETS = [dataset("api", "D:/data/api"), dataset("blizzard-training", "D:/data/blizzard")];
 
 /** Image counts per dataset, so a plan reflects which one was asked about. */
 const IMAGES: Record<string, number> = { api: 6, "blizzard-training": 47 };
 
+/**
+ * The project's shared config, standing in for the daemon's copy.
+ *
+ * The form's state lives in the project now rather than in sessionStorage,
+ * so "does an edit survive an unmount" is a question about this round trip
+ * — and a test that did not model it would be testing nothing.
+ */
+let stored = project();
+
 function setup(overrides: Partial<typeof api> = {}) {
+  stored = project();
   fakeApi({
-    jobs: async () => ({ jobs: [], depth: 0, devices: 1, runner: true }),
+    jobs: async () => jobsResponse(),
+    saveProjectConfig: (async (_id: string, config: Record<string, unknown>) => {
+      stored = { ...stored, config };
+      return stored;
+    }) as never,
     models: async () => ({ models: [model("flux2", "FLUX.2 dev")], backends: {} }),
     planRun: async (id: string, repeats: number, epochs: number) => ({
       ...plan(IMAGES[id] ?? 0, repeats, epochs),
@@ -34,11 +48,21 @@ function setup(overrides: Partial<typeof api> = {}) {
   });
 }
 
-/** The shell owns the dataset, so the test plays the shell. */
+/** The shell owns the dataset and the project, so the test plays the shell. */
 function Shell({ initial = "api" }: { initial?: string }) {
   const [current, setCurrent] = useState(initial);
+  // Seeded from the stored copy, so a remount sees what was saved — which
+  // is exactly what the shell does after reloading its project list.
+  const [open, setOpen] = useState(stored);
   return (
-    <TrainScreen datasets={DATASETS} dataset={current} onDataset={setCurrent} onError={() => {}} />
+    <TrainScreen
+      datasets={DATASETS}
+      dataset={current}
+      project={open}
+      onDataset={setCurrent}
+      onProject={setOpen}
+      onError={() => {}}
+    />
   );
 }
 
@@ -90,12 +114,16 @@ describe("the dataset survives everything", () => {
 
   it("survives the screen being unmounted entirely", async () => {
     // Switching to another rail tab and back unmounts TrainScreen, not just
-    // the form, so in-memory state is not enough on its own.
+    // the form, so in-memory state is not enough on its own. The save is
+    // debounced, and this unmounts inside that window on purpose: a
+    // cancelled timer here would drop the edit silently.
     const first = render(<Shell />);
     await waitFor(() => expect(datasetSelect()).toBeInTheDocument());
     fireEvent.input(screen.getByLabelText("Epochs"), { target: { value: "9" } });
     await waitFor(() => expect(screen.getByLabelText("Epochs")).toHaveValue(9));
     first.unmount();
+
+    await waitFor(() => expect(stored.config.epochs).toBe(9));
 
     render(<Shell />);
     await waitFor(() => expect(screen.getByLabelText("Epochs")).toHaveValue(9));
@@ -109,7 +137,9 @@ describe("the dataset survives everything", () => {
       <TrainScreen
         datasets={DATASETS}
         dataset="api"
+        project={project()}
         onDataset={onDataset}
+        onProject={() => {}}
         onError={() => {}}
       />,
     );
@@ -121,7 +151,14 @@ describe("the dataset survives everything", () => {
 
   it("follows the shell when the dataset is changed elsewhere", async () => {
     const view = render(
-      <TrainScreen datasets={DATASETS} dataset="api" onDataset={() => {}} onError={() => {}} />,
+      <TrainScreen
+        datasets={DATASETS}
+        dataset="api"
+        project={project()}
+        onDataset={() => {}}
+        onProject={() => {}}
+        onError={() => {}}
+      />,
     );
     await waitFor(() => expect(datasetSelect().value).toBe("api"));
 
@@ -129,7 +166,9 @@ describe("the dataset survives everything", () => {
       <TrainScreen
         datasets={DATASETS}
         dataset="blizzard-training"
+        project={project()}
         onDataset={() => {}}
+        onProject={() => {}}
         onError={() => {}}
       />,
     );
@@ -170,20 +209,21 @@ describe("what gets submitted", () => {
   });
 });
 
-describe("locking", () => {
-  it("disables every control while a run is going", async () => {
-    setup({
-      jobs: async () => ({ jobs: [job({ status: "running" })], depth: 1, devices: 1, runner: true }),
-    });
+describe("the queue", () => {
+  /**
+   * The form used to lock while any run was going. On a shared node that
+   * is the opposite of what a queue is for: it makes the card
+   * whoever-got-there-first for the rest of the day.
+   */
+  it("stays editable while somebody else's run is going", async () => {
+    setup({ jobs: async () => jobsResponse([job({ status: "running" })]) });
 
     render(<Shell />);
     await waitFor(() => expect(tab("Configure")).toBeInTheDocument());
     fireEvent.click(tab("Configure"));
 
-    await waitFor(() => expect(datasetSelect()).toBeDisabled());
-    expect(screen.getByLabelText("Epochs")).toBeDisabled();
-    expect(screen.getByRole("button", { name: /start training/i })).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent(/locked/i);
+    await waitFor(() => expect(datasetSelect()).toBeEnabled());
+    expect(screen.getByLabelText("Epochs")).toBeEnabled();
   });
 
   it("leaves everything editable when nothing is running", async () => {
@@ -191,5 +231,85 @@ describe("locking", () => {
     render(<Shell />);
     await waitFor(() => expect(datasetSelect()).toBeEnabled());
     expect(screen.getByLabelText("Epochs")).toBeEnabled();
+  });
+
+  it("says what pressing the button will actually do", async () => {
+    setup({
+      jobs: async () =>
+        jobsResponse([
+          job({ id: "a", status: "queued", project: "alice" }),
+          job({ id: "b", status: "queued", project: "tuesday" }),
+        ]),
+    });
+
+    render(<Shell />);
+    await waitFor(() => expect(tab("Configure")).toBeInTheDocument());
+    fireEvent.click(tab("Configure"));
+
+    // "Start training" beside a busy node is a promise it cannot keep.
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /add to queue/i })).toBeInTheDocument(),
+    );
+  });
+
+  it("shows other projects' runs, not only this project's", async () => {
+    // The number a student is asking for. A queue filtered to your own
+    // runs would say "you are next" while four other people are ahead.
+    setup({
+      jobs: async () =>
+        jobsResponse([
+          job({ id: "a", status: "queued", project: "alice" }),
+          job({ id: "b", status: "queued", project: "bob" }),
+        ]),
+    });
+
+    render(<Shell />);
+    await waitFor(() => expect(tab("Configure")).toBeInTheDocument());
+    fireEvent.click(tab("Configure"));
+
+    await waitFor(() => expect(screen.getByText("alice")).toBeInTheDocument());
+    expect(screen.getByText("bob")).toBeInTheDocument();
+  });
+});
+
+describe("the shared config", () => {
+  it("submits the run under the open project", async () => {
+    const submitted: Record<string, unknown>[] = [];
+    setup({
+      submitJob: async (spec: Record<string, unknown>) => {
+        submitted.push(spec);
+        return { ...job(), id: "new-job" };
+      },
+      saveProjectConfig: async () => project(),
+    });
+
+    render(<Shell />);
+    await waitFor(() => expect(datasetSelect()).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /start training/i })).toBeEnabled(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /start training/i }));
+
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]!.project).toBe("tuesday");
+  });
+
+  it("opens on the settings the project already holds", async () => {
+    setup();
+    const open = project("tuesday", { config: { epochs: 11 } });
+    render(
+      <TrainScreen
+        datasets={DATASETS}
+        dataset="api"
+        project={open}
+        onDataset={() => {}}
+        onProject={() => {}}
+        onError={() => {}}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Epochs")).toHaveValue(11),
+    );
   });
 });

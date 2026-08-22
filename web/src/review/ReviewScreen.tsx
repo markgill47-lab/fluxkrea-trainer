@@ -1,5 +1,5 @@
 /**
- * Mask review — doc 09's keyboard map, in full.
+ * The Masks screen — doc 09's keyboard map, in full.
  *
  * "The review pass must be completable without the mouse except for
  * drawing." That is the design constraint that shapes this file: every
@@ -15,8 +15,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { api, ApiError, assets, isAbort } from "~/api/client";
-import type { Box, Item, ReviewProgress } from "~/api/types";
-import { BoxHistory, MANUAL } from "~/lib/boxes";
+import type { Box, BoxShape, Item, ReviewProgress, Task } from "~/api/types";
+import { BoxHistory, ELLIPSE, MANUAL, RECT } from "~/lib/boxes";
 import * as vp from "~/lib/viewport";
 import { Filmstrip } from "./Filmstrip";
 import { Inspector } from "./Inspector";
@@ -39,6 +39,16 @@ const DEFAULT_MASK: MaskSettings = {
 
 const MASK_CYCLE: MaskMode[] = ["off", "overlay", "isolate"];
 
+/**
+ * What a hand-drawn region defaults to.
+ *
+ * Ellipse, to match what detection produces: a review pass is mostly
+ * adding the faces the detector missed, and a rectangle among a screen of
+ * ellipses exports a differently-shaped hole in the mask for no reason
+ * anybody chose.
+ */
+const DEFAULT_SHAPE: BoxShape = ELLIPSE;
+
 export function ReviewScreen({ dataset, detectors, onError }: Props) {
   const [items, setItems] = useState<Item[]>([]);
   const [progress, setProgress] = useState<ReviewProgress | null>(null);
@@ -50,7 +60,9 @@ export function ReviewScreen({ dataset, detectors, onError }: Props) {
   const [showDetected, setShowDetected] = useState(true);
   const [mask, setMask] = useState<MaskSettings>(DEFAULT_MASK);
   const [drawMode, setDrawMode] = useState(false);
+  const [drawShape, setDrawShape] = useState<BoxShape>(DEFAULT_SHAPE);
   const [detector, setDetector] = useState(detectors[0] ?? "yunet");
+  const [task, setTask] = useState<Task | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [zoom, setZoom] = useState(100);
@@ -235,6 +247,45 @@ export function ReviewScreen({ dataset, detectors, onError }: Props) {
     }
   }, [dataset, stem, detector, reload, onError]);
 
+  /**
+   * Run a whole-dataset operation and follow it to completion.
+   *
+   * Detect and export live on this screen rather than in the gallery
+   * because this is where their result is looked at: the gallery is about
+   * captions, ratings and what is in the folder, and a button whose output
+   * you have to change tab to inspect gets pressed twice.
+   */
+  const runOperation = useCallback(
+    async (operation: string, options: Record<string, unknown> = {}) => {
+      try {
+        const started = await api.runOperation(dataset, operation, options);
+        setTask(started);
+
+        let status = started.status;
+        while (status === "queued" || status === "running") {
+          await new Promise((resolve) => setTimeout(resolve, 350));
+          const latest = await api.task(started.id);
+          setTask(latest);
+          status = latest.status;
+        }
+        await reload();
+        // Re-read the open image: a detect pass just replaced its boxes.
+        if (stem) {
+          const payload = await api.boxes(dataset, stem);
+          history.current.reset(payload.boxes);
+          setBoxes(payload.boxes);
+          setSelected([]);
+          reviewedRef.current = payload.reviewed;
+        }
+        setTimeout(() => setTask(null), 2500);
+      } catch (error) {
+        if (!isAbort(error)) onError(error instanceof ApiError ? error.message : String(error));
+        setTask(null);
+      }
+    },
+    [dataset, stem, reload, onError],
+  );
+
   const deleteSelected = useCallback(() => {
     if (!selected.length) return;
     const drop = new Set(selected);
@@ -326,6 +377,13 @@ export function ReviewScreen({ dataset, detectors, onError }: Props) {
         case "B":
           setDrawMode((on) => !on);
           break;
+        case "e":
+        case "E":
+          // Switching shape turns drawing on, because wanting one is the
+          // only reason to press it.
+          setDrawShape((shape) => (shape === ELLIPSE ? RECT : ELLIPSE));
+          setDrawMode(true);
+          break;
         case "Delete":
         case "Backspace":
           event.preventDefault();
@@ -416,7 +474,7 @@ export function ReviewScreen({ dataset, detectors, onError }: Props) {
   return (
     <div class={layout} ref={rootRef} style={{ gridTemplateColumns: columns }}>
       <header class="review__head">
-        <span class="review__title">{dataset} · review</span>
+        <span class="review__title">{dataset} · masks</span>
         <span class="review__progress">
           {progress ? `${progress.reviewed}/${progress.total} reviewed` : loading ? "loading…" : ""}
         </span>
@@ -426,6 +484,22 @@ export function ReviewScreen({ dataset, detectors, onError }: Props) {
           </span>
         )}
         <span class="topbar__spacer" />
+        <button
+          class="btn"
+          onClick={() => void runOperation("detect", { only_missing: true })}
+          disabled={!!task}
+          title="Find faces in images that have no boxes yet, as ellipses"
+        >
+          Detect faces
+        </button>
+        <button
+          class="btn btn--accent"
+          onClick={() => void runOperation("mask", { detect: false, force: true })}
+          disabled={!!task}
+          title="Export masks/*.png from the boxes on this screen"
+        >
+          Export masks
+        </button>
         {narrow && (
           <button
             class={`btn${inspectorOpen ? " btn--accent" : " btn--ghost"}`}
@@ -439,6 +513,21 @@ export function ReviewScreen({ dataset, detectors, onError }: Props) {
           ?
         </button>
       </header>
+
+      {task && (
+        <div class={`taskbar${task.status === "failed" ? " taskbar--failed" : ""}`}>
+          <span>{task.detail.operation ?? task.kind}</span>
+          {task.detail.progress && task.detail.progress.total > 0 && (
+            <>
+              <progress value={task.detail.progress.step} max={task.detail.progress.total} />
+              <span class="tabular">
+                {task.detail.progress.step}/{task.detail.progress.total}
+              </span>
+            </>
+          )}
+          <span class="taskbar__status">{task.error || task.status}</span>
+        </div>
+      )}
 
       <Filmstrip
         hidden={tiny}
@@ -459,6 +548,7 @@ export function ReviewScreen({ dataset, detectors, onError }: Props) {
         showDetected={showDetected}
         mask={mask}
         drawMode={drawMode}
+        drawShape={drawShape}
         onSelect={setSelected}
         onChange={change}
         onTransform={setZoomTransform}
@@ -475,8 +565,16 @@ export function ReviewScreen({ dataset, detectors, onError }: Props) {
         <button
           class={`btn${drawMode ? " btn--accent" : " btn--ghost"}`}
           onClick={() => setDrawMode((on) => !on)}
+          title="Draw a region (B)"
         >
-          Draw box
+          Draw {drawShape === ELLIPSE ? "ellipse" : "box"}
+        </button>
+        <button
+          class="btn btn--ghost"
+          onClick={() => setDrawShape((shape) => (shape === ELLIPSE ? RECT : ELLIPSE))}
+          title="Switch between ellipse and rectangle (E)"
+        >
+          {drawShape === ELLIPSE ? "◯" : "▭"}
         </button>
         <span class="bottombar__spacer" />
         <span class="bottombar__zoom tabular">{zoom}%</span>

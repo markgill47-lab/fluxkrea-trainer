@@ -220,9 +220,74 @@ def test_the_round_trip_holds(dataset: Path) -> None:
     with Image.open(item.mask) as written:
         pixels = np.array(written.convert("L"))
 
+    centre = (box.y + box.h // 2, box.x + box.w // 2)
     assert pixels.shape == (read_size(item.image).height, read_size(item.image).width)
-    assert pixels[box.y + 2, box.x + 2] == IGNORED, "the face region is not excluded"
+    assert pixels[centre] == IGNORED, "the face region is not excluded"
     assert pixels[0, 0] == TRAINED, "the background is not trained"
+
+
+def test_a_detected_region_is_an_ellipse_not_its_bounding_box(dataset: Path) -> None:
+    """Detection fills ellipses, so the corners of the box stay trained.
+
+    The corners of an expanded eyes-to-chin box are shoulder and wall. A
+    rectangle tells the run to learn nothing from them; an ellipse covers
+    the same face and hands those pixels back.
+    """
+    box = Box(12, 8, 20, 16, src="fake", conf=0.95)
+    reviewed_dataset(dataset, [box])
+    export_masks(dataset, expand=1.0, feather=0)
+
+    with Image.open(scan(dataset)[0].mask) as written:
+        pixels = np.array(written.convert("L"))
+
+    assert pixels[box.y + box.h // 2, box.x + box.w // 2] == IGNORED
+    assert pixels[box.y, box.x] == TRAINED, "the bounding box corner should not be masked"
+    assert pixels[box.bottom - 1, box.right - 1] == TRAINED
+
+
+def test_detection_shape_is_a_choice_not_a_fixture(dataset: Path) -> None:
+    """``shape='rect'`` restores the pre-ellipse behaviour exactly."""
+    box = Box(12, 8, 20, 16, src="fake", conf=0.95)
+    detect_faces(dataset, detector=FakeDetector([box]), workers=1, shape="rect")
+    store = BoxStore.load(dataset)
+    for name in list(store):
+        store.mark_reviewed(name)
+    store.save()
+    export_masks(dataset, expand=1.0, feather=0)
+
+    with Image.open(scan(dataset)[0].mask) as written:
+        pixels = np.array(written.convert("L"))
+
+    assert pixels[box.y, box.x] == IGNORED, "a rect fills its own corner"
+
+
+def test_shape_survives_the_sidecar(dataset: Path) -> None:
+    """An ellipse read back off disk is still an ellipse.
+
+    The box file is the durable record of a review pass, and a shape that
+    did not survive it would silently re-render every mask as a rectangle
+    the next time anybody opened the dataset.
+    """
+    detect_faces(dataset, detector=FakeDetector(), workers=1)
+    reloaded = BoxStore.load(dataset)
+    assert all(b.is_ellipse for name in reloaded for b in reloaded.boxes(name))
+
+
+def test_an_ellipse_at_the_frame_edge_keeps_its_centre() -> None:
+    """Clipping is not clamping.
+
+    Clamping an ellipse clamps its bounding box, which moves the centre and
+    squashes the axes - so a face at the edge of the frame would be covered
+    by a different ellipse from the one drawn in review.
+    """
+    # Half off the left edge: centre at x=0, so the visible half is a
+    # half-ellipse and the row through the centre is masked at x=0.
+    box = Box(-20, 20, 40, 40, src="fake", shape="ellipse")
+    mask = np.array(render_mask((100, 100), [box], expand=1.0, feather=0))
+
+    assert mask[40, 0] == IGNORED, "the centre row should reach the frame edge"
+    assert mask[40, 19] == IGNORED, "the right half of the ellipse is inside the frame"
+    assert mask[25, 18] == TRAINED, "the bounding box corner is outside the ellipse"
 
 
 def test_export_refuses_unreviewed_images(dataset: Path, collector) -> None:

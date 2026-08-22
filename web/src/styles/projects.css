@@ -1,0 +1,121 @@
+/* Projects: the gate, and the one text input that is not a settings field.
+ *
+ * The gate is the only full-window screen in the app. It is deliberately
+ * not the shell with an empty state inside it: nothing about a node is
+ * meaningful before a project is chosen, and a rail full of tabs that all
+ * lead nowhere invites clicking them.
+ */
+
+.input {
+  height: var(--control-h);
+  min-width: 0;
+  padding: 0 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font: var(--text-base) var(--font-ui);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.input:disabled {
+  color: var(--text-tertiary);
+  background: var(--bg-app);
+}
+
+/* -- the gate ------------------------------------------------------------ */
+
+.gate {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--space-6);
+  background: var(--bg-app);
+  overflow-y: auto;
+}
+
+.gate__panel {
+  width: min(520px, 100%);
+  padding: var(--space-8);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-popover);
+}
+
+.gate__title {
+  margin: 0 0 var(--space-2);
+  font: var(--text-xl) var(--font-ui);
+  font-weight: 600;
+}
+
+.gate__lead {
+  margin: 0 0 var(--space-6);
+  color: var(--text-secondary);
+  font: var(--text-base) var(--font-ui);
+}
+
+.gate__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  list-style: none;
+  /* Twenty students is twenty projects by Friday, and the create field
+   * below must stay reachable without hunting for it. */
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.gate__project {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--row-h);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  text-align: left;
+  font: var(--text-base) var(--font-ui);
+}
+
+.gate__project:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.gate__project-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gate__project-meta {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.gate__new {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.gate__new .input {
+  flex: 1;
+}
+
+.gate__hint {
+  margin: var(--space-6) 0 0;
+  color: var(--text-tertiary);
+  font: var(--text-sm) var(--font-ui);
+}

@@ -11,7 +11,7 @@ masked, unquantised on one 5090 — the first output here that is a LoRA
 rather than a smoke test. Checkpoint rotation held (3 kept plus the
 final), the loss regexes held across thousands of steps, and the analytics
 above the backend line ran on a real series rather than a synthetic one.
-731 Python tests and 55 component tests pass on Windows; the Python suite
+817 Python tests and 69 component tests pass on Windows; the Python suite
 is platform-neutral and both OS layouts are exercised from either one.
 What exists:
 
@@ -33,8 +33,10 @@ What exists:
 | `core/dataset/archive.py` | Tar streaming, with extraction that refuses to escape |
 | `core/backends/` | `TrainingBackend` protocol, `RunSpec`, model registry |
 | `core/backends/aitoolkit.py` | **FLUX.2, Klein and Krea 2 in one config-driven class** |
-| `daemon/` | 47 endpoints, task runner, SSE, persistent job queue, token and path scoping |
-| `cli/` | `fk` — a real API client: dataset ops, push, fleet, jobs, `serve` |
+| `daemon/` | 63 endpoints, task runner, SSE, persistent job queue, token and path scoping |
+| `daemon/projects.py` | Named groups of datasets sharing a training config |
+| `core/backends/artifacts.py` | Find a run's LoRA; publish it into ComfyUI |
+| `cli/` | `fk` — a real API client: dataset ops, projects, push, fleet, jobs, `serve` |
 | `web/` | The browser client: gallery, mask review, training config + monitor, settings |
 | `web/tests/` | Component tests — mount lifecycle, submitted payloads, what a dialog says before it acts |
 | `deploy/` | systemd user unit and deployment notes |
@@ -44,10 +46,60 @@ toolkit, an HTTP framework, or a client package — and it now resolves
 relative imports, which is how a `core → daemon` reference slipped past it
 once already.
 
-The web client is built: dataset gallery, mask review, training
-configuration and monitor, and settings, in `web/` (Vite + Preact +
-TypeScript, self-hosted fonts, no CDN). The daemon serves the built
-client, so there is one thing to deploy per node.
+The web client is built: dataset gallery, masks, training configuration
+and monitor, and settings, in `web/` (Vite + Preact + TypeScript,
+self-hosted fonts, no CDN). The daemon serves the built client, so there
+is one thing to deploy per node.
+
+### The teaching deployment
+
+A second shape landed on top of the fleet one: **one node, a room of
+students, no accounts**. Four pieces, and the reasoning for each is in
+[deploy/README.md](../deploy/README.md#a-teaching-node-one-server-a-room-of-students).
+
+* **Projects.** A named group of dataset folders sharing one training
+  config, stored in `data_dir/projects.json`. A grouping over the dataset
+  registry, not a replacement for it — datasets stay registered, a folder
+  can be in two projects, and deleting a project touches nothing on disk.
+  Which project a browser has open lives in that browser: the daemon has
+  no "current project", because several people share one and a
+  server-side selection would mean the last person to click changed
+  everybody's screen.
+* **Lab mode.** `daemon.lab_mode` lets the daemon bind beyond loopback
+  with no token, and is the only setting in the project that opens a
+  port. Not writable over the API, refuses to start without
+  `dataset.roots`, and the startup lines name every address it is
+  reachable at. `fk serve --lab` for a session started by hand.
+* **A fair queue.** `RunSpec.project` carries the identity, and
+  `queue.fair_order` interleaves so each project's Nth run precedes any
+  project's N+1th. A single-project node behaves exactly as FIFO did,
+  which is what keeps the CLI and the fleet unchanged. The training form
+  no longer locks while a run is going — that was right for one operator
+  and is the opposite of what a queue is for.
+* **Getting the LoRA out.** `GET /jobs/{id}/artifacts` lists the
+  `.safetensors` a run wrote, final first; the monitor offers Download and
+  Publish to ComfyUI. The destination folder comes off `Model.lora_dir`,
+  so FLUX.2 lands in `models/loras/flux2` and Krea 2 in
+  `models/loras/krea2` without anybody choosing.
+
+### Regions have a shape
+
+A `Box` now carries `rect` or `ellipse`, and **detection produces
+ellipses**. An expanded eyes-to-chin box has four corners of pure
+background in it — shoulder, wall, another dancer's arm — and a
+rectangle tells the run to learn nothing from all of them. The inscribed
+ellipse drops ~21% of that area (measured: 0.785 of the bounding box,
+which is π/4) while covering the same hair, hairline and jaw.
+
+The field is omitted from the sidecar when it is `rect`, so every
+`face_boxes.json` written before this round-trips byte for byte, and an
+unknown shape reads as `rect` rather than raising. `mask.shape` in the
+config flips the default back if a dataset wants it.
+
+The review screen draws either — `B` toggles draw mode, `E` switches
+shape — and hit-testing follows the shape rather than the bounding box,
+because two ellipses overlapping at the corners is the ordinary case in a
+group shot.
 
 **Not built:** the Klein backend (P5 — the standalone `klein_trainer/`,
 not Klein-through-ai-toolkit, which works today). The fleet view is not
@@ -170,6 +222,18 @@ something the ai-toolkit path cannot do. Its analytics — the original
 reason P5 mattered — are already lifted into `core/analytics/loss.py` and
 running for every backend, so that half of the phase is done and the
 remaining half needs a reason.
+
+**`fk` has no artifact commands yet.** `fk projects` and `fk train
+--project` landed, so a teaching node can be set up from a script. What is
+still browser-only is getting the LoRA out: `GET /jobs/{id}/artifacts`,
+the download and `POST /jobs/{id}/publish` have no `fk jobs
+artifacts|download|publish` in front of them. Same shape as the projects
+gap was — the API can do it, the operator has to curl.
+
+**`fk dataset` has no `forget`.** `DELETE /datasets/{id}` exists and the
+browser uses it; the CLI cannot deregister a folder. It comes up in lab
+teardown, and `tests/test_cli.py` currently reaches past the CLI to the
+API to set up the case.
 
 **P7 — the fleet view, on the operator's machine.** Deliberately not in
 the node-served client (see the decision below). `fk fleet status` is what

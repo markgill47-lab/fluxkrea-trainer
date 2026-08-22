@@ -22,22 +22,36 @@ from tests.conftest import make_image
 
 @pytest.fixture(scope="module")
 def node(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
-    """One daemon for the module, on a real ephemeral port."""
+    """One daemon for the module, on a real ephemeral port.
+
+    **This fixture sets ``FLUXKREA_HOME`` itself**, and must. The autouse
+    ``isolated_env`` in the root conftest is function-scoped, and pytest
+    builds higher-scoped fixtures first - so when this one constructs its
+    ``State`` there is no override in the environment yet, and every
+    location that is not passed in explicitly resolves to the developer's
+    real profile. It did: the prompt library, the job queue and the runs
+    directory were all being written to the real ``%LOCALAPPDATA%`` by this
+    module, which is the one thing the root conftest exists to prevent.
+    A `MonkeyPatch` context rather than the fixture, because the fixture is
+    function-scoped too.
+    """
     from fluxkrea.cli.embedded import EmbeddedDaemon
     from fluxkrea.core.config import load
     from fluxkrea.daemon.registry import Registry
     from fluxkrea.daemon.state import State
 
     home = tmp_path_factory.mktemp("cli-node")
-    config = load(use_file=False)
-    config.dataset.min_resolution = 0
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv("FLUXKREA_HOME", str(home))
+        config = load(use_file=False)
+        config.dataset.min_resolution = 0
 
-    state = State(config=config, registry=Registry(file=home / "registry.json"))
-    daemon = EmbeddedDaemon(config, state)
-    url = daemon.start()
-    yield url
-    daemon.stop()
-    state.shutdown()
+        state = State(config=config, registry=Registry(file=home / "registry.json"))
+        daemon = EmbeddedDaemon(config, state)
+        url = daemon.start()
+        yield url
+        daemon.stop()
+        state.shutdown()
 
 
 @pytest.fixture(autouse=True)
@@ -56,6 +70,12 @@ def out(capsys: pytest.CaptureFixture[str]) -> str:
 
 def payload(capsys: pytest.CaptureFixture[str]):  # noqa: ANN201
     return json.loads(out(capsys))
+
+
+def said(capsys: pytest.CaptureFixture[str]) -> str:
+    """What the command told a person. `Console` writes to stderr; stdout
+    is reserved for `--json`, so the two can be piped apart."""
+    return capsys.readouterr().err
 
 
 # --------------------------------------------------------------------------
@@ -472,3 +492,147 @@ def test_global_flags_work_on_either_side_of_the_subcommand(dataset: Path, capsy
 def test_an_unknown_node_name_is_a_usage_error(capsys: pytest.CaptureFixture[str]) -> None:
     assert run("--node", "does-not-exist", "node", "status") == USAGE
     assert "no node called" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------
+# projects
+# --------------------------------------------------------------------------
+
+
+def test_this_module_does_not_write_to_the_real_profile(node: str) -> None:
+    """The root conftest's promise, checked where it was being broken.
+
+    ``isolated_env`` is autouse but function-scoped, and pytest builds
+    module-scoped fixtures first - so this module's daemon was resolving
+    its prompt library, job queue and runs directory against the
+    developer's own profile. Nothing failed; it just quietly wrote there.
+    """
+    from fluxkrea.cli.client import Client
+
+    with Client.remote(node) as client:
+        locations = client.get("/node")["paths"]
+
+    real = str(Path.home()).lower()
+    for name in ("data_dir", "state_dir", "queue_dir", "runs_dir", "projects_file"):
+        resolved = locations[name].lower()
+        assert "pytest" in resolved, f"{name} escaped the temp profile: {locations[name]}"
+        assert not resolved.startswith(f"{real}\appdata"), locations[name]
+
+
+def test_a_project_is_created_and_listed(capsys: pytest.CaptureFixture[str]) -> None:
+    assert run("projects", "new", "Bench One") == OK
+    assert "bench-one" in said(capsys)
+
+    assert run("--json", "projects", "list") == OK
+    assert "bench-one" in {p["id"] for p in payload(capsys)["projects"]}
+
+
+def test_a_project_can_be_created_with_its_datasets_in_one_call(
+    dataset: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Setting up eight benches the day before is a loop in a script."""
+    assert run("--json", "dataset", "register", dataset) == OK
+    dataset_id = payload(capsys)["id"]
+
+    assert run("--json", "projects", "new", "Bench Two", "--dataset", dataset_id) == OK
+    assert payload(capsys)["datasets"] == [dataset_id]
+
+
+def test_a_rename_does_not_move_the_id(capsys: pytest.CaptureFixture[str]) -> None:
+    assert run("projects", "new", "Before") == OK
+    capsys.readouterr()
+
+    assert run("projects", "rename", "before", "After") == OK
+    printed = said(capsys)
+    assert "After" in printed
+    # Said every time, because somebody renaming will reasonably expect the
+    # id to follow, and queued runs are holding it.
+    assert "id did not change" in printed
+
+    assert run("--json", "projects", "show", "before") == OK
+    assert payload(capsys)["name"] == "After"
+
+
+def test_datasets_join_and_leave_from_the_terminal(
+    dataset: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert run("--json", "dataset", "register", dataset) == OK
+    dataset_id = payload(capsys)["id"]
+    assert run("projects", "new", "Bench Three") == OK
+    capsys.readouterr()
+
+    assert run("--json", "projects", "add", "bench-three", dataset_id) == OK
+    assert payload(capsys)["datasets"] == [dataset_id]
+
+    assert run("--json", "projects", "drop", "bench-three", dataset_id) == OK
+    assert payload(capsys)["datasets"] == []
+
+    # Dropped from the project, still registered on the node.
+    assert run("--json", "dataset", "list") == OK
+    assert dataset_id in {d["id"] for d in payload(capsys)["datasets"]}
+
+
+def test_removing_a_project_keeps_its_datasets(
+    dataset: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert run("--json", "dataset", "register", dataset) == OK
+    dataset_id = payload(capsys)["id"]
+    assert run("projects", "new", "Bench Four", "--dataset", dataset_id) == OK
+    capsys.readouterr()
+
+    # Non-interactive, so the confirmation resolves itself rather than
+    # hanging on a prompt nobody is there to answer.
+    assert run("projects", "rm", "bench-four") == OK
+    assert "still registered" in said(capsys)
+
+    assert run("--json", "dataset", "list") == OK
+    assert dataset_id in {d["id"] for d in payload(capsys)["datasets"]}
+    assert dataset.is_dir() and any(dataset.iterdir())
+
+
+def test_show_reports_a_dataset_the_node_has_forgotten(
+    node: str, dataset: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A project listing a folder the node lost is a row that 404s on click."""
+    from fluxkrea.cli.client import Client
+
+    assert run("--json", "dataset", "register", dataset) == OK
+    dataset_id = payload(capsys)["id"]
+    assert run("projects", "new", "Bench Five", "--dataset", dataset_id) == OK
+
+    # Deregistered over the API: `fk dataset` has no `forget` yet, which is
+    # its own gap - this test is about what the project says afterwards.
+    with Client.remote(node) as client:
+        client.delete(f"/datasets/{dataset_id}")
+    capsys.readouterr()
+
+    assert run("projects", "show", "bench-five") == OK
+    printed = said(capsys)
+    assert dataset_id in printed and "not registered on this node" in printed
+
+
+def test_an_unknown_project_is_a_usage_error() -> None:
+    assert run("projects", "show", "no-such-bench") == USAGE
+    assert run("projects", "rename", "no-such-bench", "x") == USAGE
+
+
+def test_a_nameless_project_is_refused() -> None:
+    assert run("projects", "new", "   ") == PROBLEM
+
+
+def test_a_run_can_name_the_project_that_owns_it(
+    dataset: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`--project` is what puts a CLI run in the same queue as the room's."""
+    assert run("--json", "dataset", "register", dataset) == OK
+    dataset_id = payload(capsys)["id"]
+    assert run("projects", "new", "Bench Six") == OK
+    capsys.readouterr()
+
+    assert run("--json", "train", "--model", "flux2", "--dataset", dataset_id,
+               "--project", "bench-six", "--steps", "1") == OK
+    assert payload(capsys)["spec"]["project"] == "bench-six"
+
+    assert run("--json", "projects", "show", "bench-six") == OK
+    # Reported under the project it was submitted as, not just globally.
+    assert payload(capsys)["id"] == "bench-six"

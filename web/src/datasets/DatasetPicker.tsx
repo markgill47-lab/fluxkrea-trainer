@@ -13,6 +13,12 @@
  *
  * Removing forgets the registration. It never touches the folder — the one
  * thing a destructive-sounding button in a browser must not do.
+ *
+ * The registered list is scoped to the open project, and adding a folder
+ * puts it in that project. "Remove" is therefore two different promises
+ * depending on where the node stands: it takes the dataset out of this
+ * project, and the shell decides whether that also means deregistering it
+ * from the node. Both leave every file alone.
  */
 
 import { useCallback, useEffect, useState } from "preact/hooks";
@@ -32,11 +38,16 @@ export function DatasetPicker({
   datasets,
   onClose,
   onChanged,
+  onRemove,
 }: {
   datasets: Dataset[];
   onClose(): void;
-  /** Called after a register or forget, so the shell can reload its list. */
-  onChanged(): void;
+  /** Called after a register or removal, so the shell can reload its list.
+   *  The id of a newly registered dataset is passed so the shell can add
+   *  it to the open project without a second browse. */
+  onChanged(added?: string): void;
+  /** Take a dataset out of the open project. Registration is untouched. */
+  onRemove(dataset: string): Promise<void>;
 }) {
   const [listing, setListing] = useState<BrowseResponse | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -66,12 +77,20 @@ export function DatasetPicker({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  async function act(key: string, work: () => Promise<unknown>) {
+  /**
+   * Run one picker action and refresh.
+   *
+   * *added* is passed explicitly rather than sniffed out of the response.
+   * Both register and forget answer with a dataset id, so reading the id
+   * off whatever came back would have handed the shell a *removed*
+   * dataset to add to the project.
+   */
+  async function act(key: string, work: () => Promise<string | void>) {
     setBusy(key);
     setError(null);
     try {
-      await work();
-      onChanged();
+      const added = await work();
+      onChanged(added || undefined);
       await browse(listing?.path ?? undefined);
     } catch (caught) {
       if (!isAbort(caught)) {
@@ -98,7 +117,7 @@ export function DatasetPicker({
 
         {/* -- registered ------------------------------------------------ */}
         <section class="modal__section">
-          <h3 class="modal__subtitle">Registered on this node</h3>
+          <h3 class="modal__subtitle">In this project</h3>
           {datasets.length === 0 ? (
             <p class="modal__note">None yet. Add one from the folders below.</p>
           ) : (
@@ -113,8 +132,15 @@ export function DatasetPicker({
                   <button
                     class="btn btn--ghost"
                     disabled={busy === dataset.id}
-                    onClick={() => void act(dataset.id, () => api.forgetDataset(dataset.id))}
-                    title="Forget this dataset. The folder and its files are left alone."
+                    onClick={() =>
+                      void act(dataset.id, async () => {
+                        await onRemove(dataset.id);
+                      })
+                    }
+                    title={
+                      "Take this dataset out of the project. It stays registered on " +
+                      "the node, and the folder and its files are left alone."
+                    }
                   >
                     Remove
                   </button>
@@ -170,7 +196,7 @@ export function DatasetPicker({
                       class="btn"
                       disabled={busy === entry.path || entry.images === 0}
                       onClick={() =>
-                        void act(entry.path, async () => {
+                        void act(entry.path, async (): Promise<string> => {
                           // A folder outside the configured roots cannot be
                           // registered until it is inside one. Adding the
                           // root is the step that used to be missing
@@ -179,7 +205,8 @@ export function DatasetPicker({
                           if (!withinRoots(entry.path, listing?.roots ?? [])) {
                             await api.addRoot(entry.path);
                           }
-                          return api.registerDataset(entry.path);
+                          const registered = await api.registerDataset(entry.path);
+                          return registered.id;
                         })
                       }
                       title={

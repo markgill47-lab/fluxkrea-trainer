@@ -10,6 +10,7 @@ trustworthy.
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, Query, Request
@@ -282,7 +283,10 @@ def put_boxes(
         raise Denied(str(exc), status=400) from exc
 
     # A box arriving from a client without a source is one a human drew.
-    boxes = [b if b.src not in ("", "unknown") else Box(b.x, b.y, b.w, b.h, MANUAL, b.conf) for b in boxes]
+    # `replace` rather than rebuilding field by field: the shape - and any
+    # field added after it - has to survive this, and a positional rebuild
+    # silently drops whatever it was not updated to mention.
+    boxes = [b if b.src not in ("", "unknown") else replace(b, src=MANUAL) for b in boxes]
 
     # Load, change and save under one lock. Marking several images reviewed
     # in quick succession sends several of these at once, and FastAPI runs
@@ -444,6 +448,7 @@ def _build(state: State, operation: str, root: Any, options: dict[str, Any]):  #
                 detector=detector,
                 workers=int(_opt(options, "workers", 4)),
                 only_missing=bool(options.get("only_missing", False)),
+                shape=str(_opt(options, "shape", config.mask.shape)),
                 extensions=extensions,
                 emit=emit,
                 cancel=cancel,
@@ -459,6 +464,7 @@ def _build(state: State, operation: str, root: Any, options: dict[str, Any]):  #
                 found = detect_faces(
                     root,
                     detector=detector,
+                    shape=str(_opt(options, "shape", config.mask.shape)),
                     extensions=extensions,
                     emit=emit,
                     cancel=cancel,

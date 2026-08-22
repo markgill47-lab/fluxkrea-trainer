@@ -53,14 +53,81 @@ def required_token(config: Config) -> str | None:
     return secret("token")
 
 
+def lab_mode(config: Config) -> bool:
+    """Is this node deliberately serving a room, with no token?
+
+    The one sanctioned way past :func:`check_bind`. It is a config-file
+    setting rather than an API one on purpose: turning it on is a decision
+    made by somebody with a shell on the node, not by anything that arrives
+    over the wire.
+    """
+    return bool(getattr(config.daemon, "lab_mode", False))
+
+
 def check_bind(config: Config) -> None:
-    """Refuse to start listening beyond localhost without a token."""
-    if not is_loopback(config.daemon.host) and not required_token(config):
-        raise Denied(
-            f"refusing to bind {config.daemon.host}:{config.daemon.port} without a token. "
-            "Set FLUXKREA_TOKEN, or bind 127.0.0.1 and reach it through an SSH tunnel.",
-            status=500,
-        )
+    """Refuse to start listening beyond localhost without a token.
+
+    Unless ``daemon.lab_mode`` is set, which is a classroom of students on
+    one LAN node reaching it by URL. That trades the token for the network
+    being the boundary, so it also insists on ``dataset.roots``: without
+    them the path check is a no-op and the API reaches the whole disk.
+    """
+    if is_loopback(config.daemon.host) or required_token(config):
+        return
+
+    if lab_mode(config):
+        if not config.dataset.roots:
+            raise Denied(
+                f"refusing to bind {config.daemon.host}:{config.daemon.port} in lab mode "
+                "with no dataset.roots set. Lab mode drops the token, so the roots are "
+                "the only thing scoping what this API can read and write - and empty "
+                "roots mean the whole machine. Set dataset.roots in config.toml.",
+                status=500,
+            )
+        return
+
+    raise Denied(
+        f"refusing to bind {config.daemon.host}:{config.daemon.port} without a token. "
+        "Set FLUXKREA_TOKEN, bind 127.0.0.1 and reach it through an SSH tunnel, or "
+        "set daemon.lab_mode = true if this is a lab node on a trusted network.",
+        status=500,
+    )
+
+
+def lan_addresses(port: int) -> list[str]:
+    """URLs this node is reachable at from the rest of the network.
+
+    Printed at startup for the lab case: "log in at this URL" is the whole
+    student-facing instruction, and asking a tutor to find the node's IP
+    themselves is how a class starts twenty minutes late.
+    """
+    import socket
+
+    found: set[str] = set()
+    try:
+        hostname = socket.gethostname()
+        for info in socket.getaddrinfo(hostname, None, socket.AF_INET):
+            address = info[4][0]
+            if not address.startswith("127."):
+                found.add(address)
+    except OSError:
+        pass
+
+    if not found:
+        # No usable answer from the resolver - a node with no DNS entry for
+        # its own name, which is common. Ask the routing table instead by
+        # opening an unconnected UDP socket; nothing is sent.
+        try:
+            probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                probe.connect(("192.0.2.1", 9))  # TEST-NET-1: routed nowhere
+                found.add(probe.getsockname()[0])
+            finally:
+                probe.close()
+        except OSError:
+            pass
+
+    return [f"http://{address}:{port}" for address in sorted(found)]
 
 
 def check_token(config: Config, presented: str | None) -> None:

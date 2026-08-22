@@ -10,9 +10,26 @@
  * is the only way boxes change.
  */
 
-import type { Box } from "~/api/types";
+import type { Box, BoxShape } from "~/api/types";
 
 export const MANUAL = "manual";
+
+/**
+ * The default shape. A box file written before shapes existed holds
+ * rectangles, and the daemon omits the field for them — so `undefined`
+ * means `rect` everywhere, and reading it goes through here rather than
+ * being re-derived at each call site.
+ */
+export const RECT: BoxShape = "rect";
+export const ELLIPSE: BoxShape = "ellipse";
+
+export function shapeOf(box: { shape?: BoxShape }): BoxShape {
+  return box.shape === ELLIPSE ? ELLIPSE : RECT;
+}
+
+export function isEllipse(box: { shape?: BoxShape }): boolean {
+  return shapeOf(box) === ELLIPSE;
+}
 
 /** Doc 10's minimum. Deep enough that a review pass cannot outrun it. */
 export const UNDO_DEPTH = 100;
@@ -48,10 +65,24 @@ export function clamp(rect: Rect, width: number, height: number): Rect {
   };
 }
 
+/**
+ * Is this point inside the region — the *shape*, not its bounding box.
+ *
+ * Ellipses are tested against the ellipse. Two of them overlapping at the
+ * corners is the common case in a group shot, and hit-testing bounding
+ * boxes there selects the face you are not pointing at.
+ */
 export function contains(box: Box, point: { x: number; y: number }): boolean {
-  return (
-    point.x >= box.x && point.x <= box.x + box.w && point.y >= box.y && point.y <= box.y + box.h
-  );
+  const inBounds =
+    point.x >= box.x && point.x <= box.x + box.w && point.y >= box.y && point.y <= box.y + box.h;
+  if (!inBounds || !isEllipse(box)) return inBounds;
+
+  const rx = box.w / 2;
+  const ry = box.h / 2;
+  if (rx <= 0 || ry <= 0) return false;
+  const dx = (point.x - (box.x + rx)) / rx;
+  const dy = (point.y - (box.y + ry)) / ry;
+  return dx * dx + dy * dy <= 1;
 }
 
 export function intersects(a: Rect, b: Box): boolean {

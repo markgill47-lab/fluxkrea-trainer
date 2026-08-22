@@ -3,6 +3,7 @@ import { App } from "./app";
 import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
+import "./styles/projects.css";
 import "./styles/gallery.css";
 import "./styles/review.css";
 import "./styles/monitor.css";

@@ -466,3 +466,63 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* -- the shared queue -----------------------------------------------------
+ *
+ * Every waiting run on the node, not just this project's. A student needs
+ * to see whose runs are in front of theirs before deciding whether to
+ * press Start, which is why this sits above the form rather than below it.
+ */
+
+.queue {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.queue__row {
+  display: grid;
+  grid-template-columns: 28px minmax(80px, 1fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-h);
+  padding: 0 var(--space-2);
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  font: var(--text-sm) var(--font-ui);
+  color: var(--text-secondary);
+}
+
+/* Your own runs, in a list that is mostly other people's. */
+.queue__row--mine {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+.queue__position {
+  color: var(--text-tertiary);
+  text-align: right;
+}
+
+.queue__project {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.queue__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.queue__model {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}

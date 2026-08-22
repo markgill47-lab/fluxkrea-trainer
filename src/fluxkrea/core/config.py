@@ -89,6 +89,11 @@ class MaskConfig:
     #: Deliberately low. Missed faces are the expensive failure.
     confidence: float = 0.5
     nms: float = 0.3
+    #: What a detected region is filled as - ``ellipse`` or ``rect``. A face
+    #: is an ellipse, and the corners a rectangle adds around an expanded
+    #: eyes-to-chin box are background the run is then told to learn
+    #: nothing from. Hand-drawn boxes carry their own shape and ignore this.
+    shape: str = "ellipse"
     #: Detectors return an eyes-to-chin box; identity lives in hair, hairline
     #: and jaw as well.
     expand: float = 1.6
@@ -155,6 +160,17 @@ class DaemonConfig:
     node_name: str = ""
     #: Worker threads for dataset tasks. Training jobs get their own slots.
     workers: int = 2
+    #: Serve a room of students off one node's LAN address, with no token.
+    #:
+    #: Off by default and deliberately awkward to turn on, because it is the
+    #: one setting that puts process launching on a network. It must be an
+    #: explicit decision by somebody with a shell on the node - it is not
+    #: writable over the API, and the daemon prints the addresses it is
+    #: reachable at when it starts so nobody opens a port without seeing it.
+    #:
+    #: ``dataset.roots`` is still enforced, and on a lab node it is the only
+    #: thing standing between a student and the rest of the disk. Set it.
+    lab_mode: bool = False
 
 
 @dataclass(slots=True)
@@ -242,13 +258,31 @@ class Config:
             problems.append(f"daemon.port {self.daemon.port} is out of range")
 
         # Doc 06, security: binding beyond loopback without a token would put
-        # process launching and dataset rewriting on the network.
-        if self.daemon.host not in ("127.0.0.1", "localhost", "::1") and not secret("token"):
+        # process launching and dataset rewriting on the network. Lab mode
+        # is the deliberate exception - a classroom of students on one LAN
+        # node, where a per-student token is a support burden nobody wants
+        # and the network is the boundary instead.
+        if (
+            self.daemon.host not in ("127.0.0.1", "localhost", "::1")
+            and not secret("token")
+            and not self.daemon.lab_mode
+        ):
             problems.append(
                 f"daemon.host is {self.daemon.host!r} but no FLUXKREA_TOKEN is set; "
-                "the daemon refuses to listen beyond localhost without one"
+                "the daemon refuses to listen beyond localhost without one. "
+                "Set FLUXKREA_TOKEN, or set daemon.lab_mode = true if this is a "
+                "lab node on a trusted network"
             )
 
+        if self.daemon.lab_mode and not self.dataset.roots:
+            problems.append(
+                "daemon.lab_mode is on but dataset.roots is empty, which puts every "
+                "path on this machine inside the API's reach. Set dataset.roots to "
+                "the folder the students' data lives under"
+            )
+
+        if self.mask.shape not in ("rect", "ellipse"):
+            problems.append(f"mask.shape must be 'rect' or 'ellipse', not {self.mask.shape!r}")
         if self.mask.expand < 1.0:
             problems.append("mask.expand below 1.0 would shrink the detected box")
         if not 0.0 <= self.mask.min_value <= 1.0:

@@ -13,15 +13,17 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
-import type { Box } from "~/api/types";
+import type { Box, BoxShape } from "~/api/types";
 import {
   clamp,
   contains,
+  ELLIPSE,
   expand,
   HANDLES,
   HANDLE_CURSOR,
   handlePoint,
   intersects,
+  isEllipse,
   MANUAL,
   normalise,
   resize,
@@ -31,6 +33,28 @@ import {
 import * as vp from "~/lib/viewport";
 
 export type MaskMode = "off" | "overlay" | "isolate";
+
+/**
+ * One region's outline. Rect or ellipse, decided here and nowhere else.
+ *
+ * Every place that draws a region — the outline, its shadow, the live
+ * drag — goes through this, so there is no way for one of them to keep
+ * drawing rectangles after the others learned about ellipses.
+ */
+function Outline({ box, className }: { box: Box; className: string }) {
+  if (isEllipse(box)) {
+    return (
+      <ellipse
+        class={className}
+        cx={box.x + box.w / 2}
+        cy={box.y + box.h / 2}
+        rx={box.w / 2}
+        ry={box.h / 2}
+      />
+    );
+  }
+  return <rect class={className} x={box.x} y={box.y} width={box.w} height={box.h} />;
+}
 
 export interface MaskSettings {
   expand: number;
@@ -47,6 +71,9 @@ interface Props {
   showDetected: boolean;
   mask: MaskSettings;
   drawMode: boolean;
+  /** What a new hand-drawn region is. Detection produces ellipses; this is
+   *  the shape the pointer draws, which is a separate choice. */
+  drawShape: BoxShape;
   onSelect(indices: number[]): void;
   onChange(label: string, boxes: Box[]): void;
   onTransform(transform: vp.Transform): void;
@@ -75,6 +102,7 @@ export function Viewport({
   showDetected,
   mask,
   drawMode,
+  drawShape,
   onSelect,
   onChange,
   onTransform,
@@ -155,12 +183,30 @@ export function Viewport({
     // otherwise hard-edged (doc 03) — never acquired through a resize.
     ctx.filter = mask.feather > 0 ? `blur(${mask.feather / 2}px)` : "none";
     for (const box of boxes) {
-      const grown = clamp(
-        expand(box, mask.expand, mask.expandUp),
-        bitmap.width,
-        bitmap.height,
-      );
-      if (grown.w > 0 && grown.h > 0) ctx.fillRect(grown.x, grown.y, grown.w, grown.h);
+      const grown = expand(box, mask.expand, mask.expandUp);
+      if (isEllipse(box)) {
+        // Not clamped, deliberately — the same rule as `render_mask` in
+        // `core/dataset/ops/mask.py`. Clamping an ellipse clamps its
+        // bounding box, which moves the centre and squashes the axes, so
+        // the preview would show a different ellipse from the one exported
+        // for any face near the edge of the frame. The canvas clips.
+        if (grown.w > 0 && grown.h > 0) {
+          ctx.beginPath();
+          ctx.ellipse(
+            grown.x + grown.w / 2,
+            grown.y + grown.h / 2,
+            grown.w / 2,
+            grown.h / 2,
+            0,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+        }
+        continue;
+      }
+      const clipped = clamp(grown, bitmap.width, bitmap.height);
+      if (clipped.w > 0 && clipped.h > 0) ctx.fillRect(clipped.x, clipped.y, clipped.w, clipped.h);
     }
     ctx.filter = "none";
     return canvas;
@@ -383,7 +429,7 @@ export function Viewport({
       const rect = clamp(drag.rect, bitmap.width, bitmap.height);
       // Ignore an accidental click that produced a degenerate box.
       if (rect.w < 4 || rect.h < 4) return;
-      const next = [...boxes, { ...rect, src: MANUAL, conf: null }];
+      const next = [...boxes, { ...rect, src: MANUAL, conf: null, shape: drawShape }];
       onChange("draw box", next);
       onSelect([next.length - 1]);
       return;
@@ -461,14 +507,8 @@ export function Viewport({
             const kind = box.src === MANUAL ? "manual" : "detected";
             return (
               <g key={`${box.x}-${box.y}-${box.w}-${box.h}-${index}`}>
-                <rect class="box__shadow" x={box.x} y={box.y} width={box.w} height={box.h} />
-                <rect
-                  class={`box box--${isSelected ? "selected" : kind}`}
-                  x={box.x}
-                  y={box.y}
-                  width={box.w}
-                  height={box.h}
-                />
+                <Outline box={box} className="box__shadow" />
+                <Outline box={box} className={`box box--${isSelected ? "selected" : kind}`} />
               </g>
             );
           })}
@@ -489,15 +529,19 @@ export function Viewport({
               );
             })}
 
-          {live && (
-            <rect
-              class={dragRef.current.kind === "marquee" ? "marquee" : "box box--manual"}
-              x={live.x}
-              y={live.y}
-              width={live.w}
-              height={live.h}
-            />
-          )}
+          {live &&
+            (dragRef.current.kind === "marquee" ? (
+              // The marquee is a selection rectangle whatever is being
+              // drawn — it is a region of the screen, not a region of the
+              // image, and drawing it as an ellipse would misdescribe
+              // which boxes it is about to catch.
+              <rect class="marquee" x={live.x} y={live.y} width={live.w} height={live.h} />
+            ) : (
+              <Outline
+                box={{ ...live, src: MANUAL, shape: drawShape }}
+                className="box box--manual"
+              />
+            ))}
         </svg>
       )}
 
@@ -508,7 +552,11 @@ export function Viewport({
         </div>
       )}
 
-      {drawMode && bitmap && <div class="viewport__hint">Drag to draw a box · Esc to cancel</div>}
+      {drawMode && bitmap && (
+        <div class="viewport__hint">
+          Drag to draw {drawShape === ELLIPSE ? "an ellipse" : "a box"} · Esc to cancel
+        </div>
+      )}
     </div>
   );
 }

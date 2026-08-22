@@ -334,3 +334,41 @@
   margin-left: auto;
   color: var(--text-tertiary);
 }
+
+/* -- what the run produced ------------------------------------------------
+ *
+ * One row, under the samples and above the log: it appears only when a run
+ * has finished, so it must not leave a gap in the layout the rest of the
+ * time. Flex rather than a grid slot for exactly that reason.
+ */
+
+.artifacts {
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap);
+  padding: var(--space-2) var(--panel-pad);
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.artifacts__title {
+  font: var(--text-base) var(--font-ui);
+  font-weight: 600;
+}
+
+.artifacts__name {
+  color: var(--text-secondary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A link styled as a button. `download` is the whole reason it is an
+ * anchor: a 90MB fetch into a blob would hold the file in memory and lose
+ * the browser's own progress. */
+a.btn {
+  text-decoration: none;
+}

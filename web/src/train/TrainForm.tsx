@@ -82,8 +82,19 @@ export const DEFAULTS: FormState = {
 
 const SCHEDULERS = ["cosine", "constant", "linear", "constant_with_warmup"];
 
-/** Turn the form into the body `POST /jobs` takes. */
-export function toSpec(form: FormState, steps: number, maskPath: string): Record<string, unknown> {
+/**
+ * Turn the form into the body `POST /jobs` takes.
+ *
+ * *project* is carried through because it is the only identity a lab node
+ * has: the shared queue lists runs by project, and interleaves them so no
+ * one project's batch holds the GPU against everybody else's first run.
+ */
+export function toSpec(
+  form: FormState,
+  steps: number,
+  maskPath: string,
+  project = "",
+): Record<string, unknown> {
   const prompts = form.sampleEnabled
     ? form.samplePrompt
         .split("\n")
@@ -95,6 +106,7 @@ export function toSpec(form: FormState, steps: number, maskPath: string): Record
     model: form.model,
     dataset: form.dataset,
     name: form.name.trim(),
+    project,
     device: form.device,
     steps,
     batch_size: form.batchSize,
@@ -125,7 +137,8 @@ export function TrainForm({
   datasets,
   models,
   devices,
-  locked,
+  project,
+  queued,
   form,
   setForm,
   onDataset,
@@ -135,8 +148,10 @@ export function TrainForm({
   datasets: Dataset[];
   models: ModelInfo[];
   devices: number;
-  /** A run is going. Every control goes read-only. */
-  locked: boolean;
+  /** The project this run is submitted as. Its identity in the queue. */
+  project: string;
+  /** How many runs are already waiting, so Start can say what it means. */
+  queued: number;
   /**
    * Owned by the parent, which outlives this component. When this held its
    * own state, switching to the monitor and back silently reset every
@@ -201,7 +216,7 @@ export function TrainForm({
     onError(null);
     try {
       const maskPath = chosenDataset ? `${chosenDataset.path}/masks` : "";
-      const job = await api.submitJob(toSpec(form, steps, maskPath));
+      const job = await api.submitJob(toSpec(form, steps, maskPath, project));
       if (job.warning) onError(job.warning);
       onSubmitted(job.id);
     } catch (error) {
@@ -211,15 +226,14 @@ export function TrainForm({
     }
   }
 
-  const disabled = locked || submitting;
+  // Only while the request itself is in flight. A run going on the node no
+  // longer locks anything: submitting behind somebody else is the point of
+  // the queue, and a locked form would make the node whoever-got-here-first
+  // for the rest of the day.
+  const disabled = submitting;
 
   return (
-    <form class={`train${locked ? " train--locked" : ""}`} onSubmit={(e) => e.preventDefault()}>
-      {locked && (
-        <div class="train__lock" role="status">
-          A run is going on this node. Settings are locked until it finishes or is cancelled.
-        </div>
-      )}
+    <form class="train" onSubmit={(e) => e.preventDefault()}>
 
       {/* -- duration --------------------------------------------------- */}
       <section class="panel">
@@ -502,12 +516,20 @@ export function TrainForm({
             onClick={() => void submit()}
           >
             {submitting ? <span class="spinner" /> : null}
-            Start training
+            {queued > 0 ? "Add to queue" : "Start training"}
           </button>
           <span class="train__actions-note">
             {steps > 0
               ? `${steps.toLocaleString()} steps${plan?.duration ? `, about ${plan.duration}` : ""}`
               : "nothing to train — check the dataset"}
+            {/* Said on the button and again here: "Start training" next to
+                a node that is busy reads as a promise it cannot keep. */}
+            {queued > 0 && steps > 0 && (
+              <>
+                {" · "}
+                {queued} {queued === 1 ? "run" : "runs"} waiting ahead of it
+              </>
+            )}
           </span>
         </div>
       </div>

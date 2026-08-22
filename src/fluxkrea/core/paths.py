@@ -236,6 +236,17 @@ def registry_file() -> Path:
     return data_dir() / "datasets.json"
 
 
+def projects_file() -> Path:
+    """Projects: named groups of datasets sharing one training config.
+
+    Beside the dataset registry rather than inside it, because a project is
+    a view over the registry and not a property of any dataset in it - the
+    same folder can belong to two projects, and deleting a project must not
+    be able to disturb the registry.
+    """
+    return data_dir() / "projects.json"
+
+
 # --------------------------------------------------------------------------
 # bundled assets
 # --------------------------------------------------------------------------
@@ -309,5 +320,6 @@ def describe() -> dict[str, str]:
         "log_dir": str(log_dir()),
         "queue_dir": str(queue_dir()),
         "runs_dir": str(runs_dir()),
+        "projects_file": str(projects_file()),
         "assets_dir": str(assets_dir()),
     }

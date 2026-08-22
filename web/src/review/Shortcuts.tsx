@@ -24,7 +24,8 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
   {
     title: "Boxes",
     keys: [
-      ["B", "Draw box mode, then drag"],
+      ["B", "Draw mode, then drag"],
+      ["E", "Ellipse or rectangle"],
       ["Del / Backspace", "Delete selected"],
       ["Tab", "Cycle boxes"],
       ["← ↑ → ↓", "Nudge 1px (10px with Shift)"],
